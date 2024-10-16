@@ -1,36 +1,70 @@
-from datetime import datetime, timezone, timedelta
-from multiprocessing.managers import Token
-from typing import Optional
 from secrets import choice
-from string import digits, ascii_letters
-from jose import JWTError, jwt
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
+from string import ascii_letters, digits
+from typing import Optional
 
-from .sittings import settings
-from ..db.db_session import get_session
+from jose import JWTError, jwt
+
+from .settings import settings
 
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = settings.ALGORITHM
 
 
 def encode_data(data: dict) -> str:
-    new_data: dict = data.copy()
-    return jwt.encode(new_data, key=SECRET_KEY, algorithm=ALGORITHM)    
+	"""
+    Encode a dictionary into a JWT token.
+
+    Args:
+        data (dict): The data to encode into the JWT.
+
+    Returns:
+        str: Encoded JWT string.
+    """
+	new_data: dict = data.copy()
+	return jwt.encode(new_data, key=SECRET_KEY, algorithm=ALGORITHM)
 
 
-def decode_data(token: str) -> dict:
-    return jwt.decode(token, key=SECRET_KEY, algorithms=ALGORITHM)
+def decode_data(token: str) -> Optional[dict]:
+	"""
+    Decode a JWT token back into a dictionary.
+
+    Args:
+        token (str): The JWT token to decode.
+
+    Returns:
+        Optional[dict]: The decoded data if successful, None if an error occurs.
+    """
+	try:
+		return jwt.decode(token, key=SECRET_KEY, algorithms=[ALGORITHM])
+	except JWTError as e:
+		print(f"JWT decoding error: {e}")
+		return None
 
 
-def generate_new_secret_key() -> None:
-    secret_key = ascii_letters + digits + '-+)(*?><{}!@#$%^'
-    return ''.join([choice(secret_key) for i in range(64)])
+def generate_new_secret_key() -> str:
+	"""
+    Generate a new 64-character secret key.
+
+    Returns:
+        str: A new secret key composed of letters, digits, and special characters.
+    """
+	secret_key = ascii_letters + digits + '-+)(*?><{}!@#$%^'
+	return ''.join([choice(secret_key) for _ in range(64)])
 
 
 def import_crypt_user() -> dict:
-    pass
+	"""
+    Placeholder function to import a cryptographic user.
+
+    Returns:
+        dict: User-related cryptographic data.
+    """
+	pass
 
 
 def change_secret_key() -> None:
-    settings.model_config.update('SECRET_KEY', generate_new_secret_key)
+	"""
+    Generate a new secret key and update the application's settings.
+    """
+	new_secret_key = generate_new_secret_key()
+	settings.model_config.update('SECRET_KEY', new_secret_key)
