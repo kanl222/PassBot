@@ -9,50 +9,37 @@ setup_logging()
 
 
 def db_init_models():
-	"""
-    Команда для инициализации моделей базы данных.
+    """
+    Initialization of database models.
 
     :return: None
     """
-	try:
-		db_path = get_db_url()
-		if not db_path:
-			raise ValueError("Путь к базе данных должен быть указан в конфигурационном файле.")
+    db_path = get_db_url()
+    if not db_path:
+        raise ValueError("Путь к базе данных должен быть указан в конфигурационном файле.")
 
-		db_session_manager.initialize(db_path)
-		logging.info("Инициализация моделей базы данных...")
-		asyncio.get_event_loop().run_until_complete(db_session_manager.init_models())
-		logging.info("Таблицы базы данных успешно созданы.")
-	except Exception as e:
-		logging.error(f"Ошибка инициализации моделей: {e}")
-		raise
+    db_session_manager.initialize(db_path)
+    asyncio.get_event_loop().run_until_complete(db_session_manager.init_models())
 
 
-def init_user(user_login,user_password):
-	"""
-    Инициализация пользователя для парсинга.
+def init_user(user_login, user_password):
+    """
+    Initializing the user for parsing.
 
     :return: None
     """
-	user_data = {
-			'login': user_login,
-			'password': user_password
-		}
+    user_data = {
+        'login': user_login,
+        'password': user_password
+    }
 
-	user_crypt_data = encode_data(user_data)
-	logging.info(f"Пользователь {user_login} успешно инициализирован.")
-
+    user_crypt_data = encode_data(user_data)
 
 
 def run_bot():
-	"""
-    Асинхронный запуск бота.
+    """
+    Launch of the bot.
 
     :return: None
     """
-	try:
-		logging.info("Запуск бота...")
-		logging.info("Бот успешно запущен.")
-	except Exception as e:
-		logging.error(f"Ошибка при запуске бота: {e}")
-		raise
+    pass

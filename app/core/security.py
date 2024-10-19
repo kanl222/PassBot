@@ -52,15 +52,6 @@ def generate_new_secret_key() -> str:
 	return ''.join([choice(secret_key) for _ in range(64)])
 
 
-def import_crypt_user() -> dict:
-	"""
-    Placeholder function to import a cryptographic user.
-
-    Returns:
-        dict: User-related cryptographic data.
-    """
-	pass
-
 
 def change_secret_key() -> None:
 	"""
