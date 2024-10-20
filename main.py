@@ -2,7 +2,10 @@ import sys
 
 import typer
 
-import app
+try:
+	import app
+except Exception as e:
+	print(e)
 
 cli = typer.Typer()
 
@@ -20,7 +23,7 @@ async def init_db_models():
 
 @cli.command(help="Initialize user")
 async def init_user(username: str = typer.Option(..., help="User login"),
-              password: str = typer.Option(..., help="User password")):
+                    password: str = typer.Option(..., help="User password")):
 	try:
 		typer.echo(f"Initializing user with login: {username}")
 		await app.init_user(username, password)

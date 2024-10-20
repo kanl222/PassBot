@@ -17,7 +17,10 @@ class User(BaseSettings):
     LOGIN: str = None
     PASSWORD: str = None
 
-settings = Settings()
+try:
+    settings = Settings()
+except Exception as e:
+    print(e)
 
 def set_data_user():
     pass
