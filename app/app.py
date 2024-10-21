@@ -3,8 +3,9 @@ import logging
 
 from .core.logging import setup_logging
 from .core.security import encode_data
+from .core.settings import IS_POSTGRESQL, settings_db
 from .db import db_session_manager, get_db_url
-
+from .tools.create_config import create_crypto_config,create_db_config
 setup_logging()
 
 
@@ -34,6 +35,14 @@ def init_user(user_login, user_password):
     }
 
     user_crypt_data = encode_data(user_data)
+
+def create_config_files():
+    """
+    Create configuration files for crypto and database settings.
+    """
+    create_crypto_config(secret_key="mysecretkey")
+    if IS_POSTGRESQL:
+        create_db_config(db_user="dbuser", db_password="dbpassword", db_host="localhost", db_name="mydatabase", is_postgresql=True)
 
 
 def run_bot():

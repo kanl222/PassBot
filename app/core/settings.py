@@ -1,42 +1,45 @@
+import logging
 import os
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+IS_TEST_MODE: str = True
+IS_POSTGRESQL: bool = False
 
-class Settings(BaseSettings):
-    SECRET_KEY: str
-    ALGORITHM: str
-    IS_TEST_MODE: str = True
-    IS_POSTGRESQL:bool = False
 
-    model_config = SettingsConfigDict(
-        env_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
-    )
+class SettingsDatabase(BaseSettings):
+	DB_USER: str = None
+	DB_PASSWORD: str = None
+	DB_HOST: str = None
+	DB_PORT: int = 5432
+	DB_NAME: str = None
+
+	IS_POSTGRESQL: bool = False
+
+	model_config = SettingsConfigDict(
+		env_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".config_db")
+	)
+
+	def get_db_url(self) -> str:
+		if not self.IS_POSTGRESQL:
+			return "sqlite+aiosqlite:///app/db/DataBase.db?check_same_thread=False"
+		else:
+			return (
+				f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@"
+				f"{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+			)
+
 
 class User(BaseSettings):
-    LOGIN: str = None
-    PASSWORD: str = None
+	LOGIN: str = None
+	PASSWORD: str = None
+
 
 try:
-    settings = Settings()
+	settings_db = SettingsDatabase()
 except Exception as e:
-    print(e)
-
-def set_data_user():
-    pass
+	logging.error(e)
 
 
 def get_db_url():
-    if  not settings.IS_POSTGRESQL:
-        return (
-            f"sqlite+aiosqlite:///app/db/DataBase.db?check_same_thread=False"
-        )
-    else:
-        return (
-            f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}@"
-            f"{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
-        )
-
-
-def get_auth_data():
-    return {"secret_key": settings.SECRET_KEY, "algorithm": settings.ALGORITHM}
+	return settings_db.get_db_url()
