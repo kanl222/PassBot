@@ -36,7 +36,7 @@ def create_crypto_config(secret_key: str, algorithm: str = 'SHA256'):
 		'SECRET_KEY': secret_key,
 		'ALGORITHM': algorithm
 	}
-	create_config_file('../.config_crypto', config_data)
+	create_config_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", '.config_crypto'), config_data)
 
 
 def create_db_config(db_user: str, db_password: str, db_host: str, db_name: str, is_postgresql: bool = False):
@@ -58,7 +58,7 @@ def create_db_config(db_user: str, db_password: str, db_host: str, db_name: str,
 		'DB_NAME': db_name,
 		'IS_POSTGRESQL': str(is_postgresql)
 	}
-	create_config_file('../.config_db', config_data)
+	create_config_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", '.config_db'), config_data)
 
 # create_crypto_config(secret_key="mysecretkey")
 # create_db_config(db_user="dbuser", db_password="dbpassword", db_host="localhost", db_name="mydatabase", is_postgresql=True)
