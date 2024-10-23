@@ -19,7 +19,7 @@ def db_init_models():
 
 	if not db_path:
 		logging.error("Database path must be specified in the configuration file.")
-		raise ValueError("Путь к базе данных должен быть указан в конфигурационном файле.")
+		raise
 
 	logging.info(f"Initializing database with path: {db_path}")
 	db_session_manager.initialize(db_path)
@@ -35,7 +35,6 @@ async def _async_init_models():
 	"""
 	try:
 		await db_session_manager.init_models()
-		logging.info("Database models initialized successfully.")
 	except Exception as e:
 		logging.error(f"Error initializing database models: {e}", exc_info=True)
 		raise
