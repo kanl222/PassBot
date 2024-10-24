@@ -1,4 +1,3 @@
-import logging
 from logging.config import dictConfig
 
 def setup_logging():
@@ -30,9 +29,14 @@ def setup_logging():
         "root": {
             "level": "INFO",
             "handlers": ["console", "file"]
+        },
+        "loggers": {
+            "bot_telegram": {
+                "level": "WARNING",
+                "handlers": ["console", "file"],
+                "propagate": False
+            }
         }
     }
 
     dictConfig(logging_config)
-
-

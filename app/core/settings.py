@@ -1,45 +1,44 @@
 import logging
-import os
-
-from pydantic_settings import BaseSettings, SettingsConfigDict
-
-IS_TEST_MODE: str = True
-IS_POSTGRESQL: bool = False
+from pydantic_settings import BaseSettings
 
 
-class SettingsDatabase(BaseSettings):
-	DB_USER: str = None
-	DB_PASSWORD: str = None
-	DB_HOST: str = None
-	DB_PORT: int = 5432
-	DB_NAME: str = None
+class Settings(BaseSettings):
+    SECRET_KEY: str
+    ALGORITHM: str = 'HS256'
+    TELEGRAM_BOT_TOKEN: str
 
-	IS_POSTGRESQL: bool = False
+    DB_USER: str
+    DB_PASSWORD: str
+    DB_HOST: str
+    DB_PORT: int = 5432
+    DB_NAME: str
+    IS_POSTGRESQL: bool = True
 
-	model_config = SettingsConfigDict(
-		env_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".config_db")
-	)
-
-	def get_db_url(self) -> str:
-		if not self.IS_POSTGRESQL:
-			return "sqlite+aiosqlite:///app/db/DataBase.db?check_same_thread=False"
-		else:
-			return (
-				f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@"
-				f"{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
-			)
-
-
-class User(BaseSettings):
-	LOGIN: str = None
-	PASSWORD: str = None
+    class Config:
+        env_file = ".env"
 
 
 try:
-	settings_db = SettingsDatabase()
+    settings = Settings()
+    logging.info("Configuration loaded successfully")
 except Exception as e:
-	logging.error(e)
+    logging.error(f"Error loading configuration: {e}", exc_info=True)
 
 
-def get_db_url():
-	return settings_db.get_db_url()
+
+def get_db_url() -> str:
+    """
+    Генерация URL для подключения к базе данных в зависимости от настроек.
+    """
+    if settings.IS_POSTGRESQL:
+        return f"postgresql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+    else:
+        return "sqlite:///./app/db.sqlite3"
+
+
+if __name__ == "__main__":
+    logging.info(f"Secret Key: {settings.SECRET_KEY[:5]}... (hidden for security)")
+    logging.info(f"Algorithm: {settings.ALGORITHM}")
+    logging.info(f"Telegram Bot Token: {settings.TELEGRAM_BOT_TOKEN[:5]}... (hidden for security)")
+    db_url = get_db_url()
+    logging.info(f"Database URL: {db_url}")

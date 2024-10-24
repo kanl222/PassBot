@@ -12,7 +12,6 @@ def create_config_file(filename: str, config_data: dict):
 	"""
 	try:
 		dir_name = os.path.dirname(filename)
-
 		os.makedirs(dir_name, exist_ok=True)
 
 		with open(filename, 'w') as config_file:
@@ -24,41 +23,30 @@ def create_config_file(filename: str, config_data: dict):
 		logging.error(f"Error creating config file {filename}: {e}")
 
 
-def create_crypto_config(secret_key: str, algorithm: str = 'SHA256'):
+def create_env(secret_key: str, bot_token: str, algorithm: str = 'SHA256',
+               db_user: str = '', db_password: str = '',
+               db_host: str = '', db_name: str = ''):
 	"""
-	Create a configuration file for crypto settings.
+	Create a configuration file for crypto settings and database connection.
 
-	Args:
-		secret_key (str): The secret key for crypto.
+	:param:secret_key (str): The secret key for crypto.
+		bot_token (str):
 		algorithm (str): The algorithm used for crypto (default is 'SHA256').
+		db_user (str): The database user (default is empty).
+		db_password (str): The database password (default is empty).
+		db_host (str): The database host (default is empty).
+		db_name (str): The database name (default is empty).
 	"""
 	config_data = {
 		'SECRET_KEY': secret_key,
-		'ALGORITHM': algorithm
-	}
-	create_config_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", '.config_crypto'), config_data)
-
-
-def create_db_config(db_user: str, db_password: str, db_host: str, db_name: str, is_postgresql: bool = False):
-	"""
-	Create a configuration file for database settings.
-
-	Args:
-		db_user (str): The database username.
-		db_password (str): The database password.
-		db_host (str): The database host.
-		db_name (str): The name of the database.
-		is_postgresql (bool): Whether PostgreSQL is used (default is False).
-	"""
-	config_data = {
+		'BOT_TOKEN': bot_token,
+		'ALGORITHM': algorithm,
 		'DB_USER': db_user,
 		'DB_PASSWORD': db_password,
 		'DB_HOST': db_host,
-		'DB_PORT': '5432' if is_postgresql else '',  # Default to 5432 for PostgreSQL
+		'DB_PORT': '5432',  # Default PostgreSQL port
 		'DB_NAME': db_name,
-		'IS_POSTGRESQL': str(is_postgresql)
 	}
-	create_config_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", '.config_db'), config_data)
 
-# create_crypto_config(secret_key="mysecretkey")
-# create_db_config(db_user="dbuser", db_password="dbpassword", db_host="localhost", db_name="mydatabase", is_postgresql=True)
+	env_file_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", '.env')
+	create_config_file(env_file_path, config_data)

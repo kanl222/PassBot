@@ -1,15 +1,13 @@
 import logging
 import sys
-
 import typer
-
 import app
 
 cli = typer.Typer()
 
 
 @cli.command(help="Create configuration files")
-def create_configs():
+def create_env():
 	"""
 	Command to generate config files for the application.
 	"""

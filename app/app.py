@@ -1,11 +1,16 @@
 import asyncio
 import logging
-
+from .core import initialization_settings
 from .core.logging import setup_logging
 from .db import db_session_manager, get_db_url
-from .tools.create_config import create_crypto_config, create_db_config
+from .tools.create_config import create_env
+from .bot_telegram.app import create_bot
 
-setup_logging()
+
+
+initialization_settings()
+
+
 
 
 def db_init_models():
@@ -68,12 +73,9 @@ def create_config_files() -> None:
 	"""
 	from .core.security import settings_crypto
 	try:
-		create_crypto_config(secret_key=settings_crypto.SECRET_KEY)
-		logging.info("Crypto configuration file created successfully.")
-
-		create_db_config(db_user="dbuser", db_password="dbpassword", db_host="localhost", db_name="mydatabase",
-		                 is_postgresql=True)
-		logging.info("Database configuration file created successfully.")
+		create_env(secret_key=settings_crypto.SECRET_KEY, db_user="dbuser", db_password="dbpassword",
+		           db_host="localhost", db_name="mydatabase", )
+		logging.info("Env configuration file created successfully.")
 	except Exception as e:
 		logging.error(f"Error creating configuration files: {e}", exc_info=True)
 		raise
@@ -86,6 +88,5 @@ def run_bot():
 	:return: None
 	"""
 	logging.info("Bot is starting...")
-	# Bot logic would be placed here in the future
-	# For now, we just log the start action.
+	create_bot('1685141690:AAHB1bO3D96_kHcCxvdCSyN2rLjmsvu3TTE').run_polling()
 	logging.info("Bot started successfully. Ready to run tasks.")
