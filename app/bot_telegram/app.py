@@ -1,34 +1,46 @@
-import logging
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
+from aiogram import Bot, Dispatcher, types
+from aiogram.types import BotCommand
 
-logging.getLogger("requests").setLevel(logging.WARNING)
+bot = Bot(token=API_TOKEN)
+dp = Dispatcher(bot)
 
-async def hello(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-	await update.message.reply_text(f'Hello {update.effective_user.first_name}')
-
-
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-	user_message = update.message.text
-	await update.message.reply_text(user_message)
+async def hello(message: types.Message):
+	await message.reply(f"Hello {message.from_user.first_name}")
 
 
-async def unknown_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-	await update.message.reply_text("Sorry, I didn't understand that command.")
+async def echo(message: types.Message):
+	await message.reply(message.text)
 
 
-async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-	if update and update.message:
-		await update.message.reply_text('An error occurred while processing your request.')
+async def unknown_command(message: types.Message):
+	await message.reply("Sorry, I didn't understand that command.")
 
 
-def create_bot(token: str) -> ApplicationBuilder:
-	app = ApplicationBuilder().token(token).build()
-	app.add_handler(CommandHandler("hello", hello))
-	app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-	app.add_handler(MessageHandler(filters.COMMAND, unknown_command))
-	app.add_error_handler(error_handler)
-
-	return app
+async def error_handler(update, exception):
+	if update.message:
+		await update.message.reply("An error occurred while processing your request.")
+	return True
 
 
+async def main(API_TOKEN: str):
+
+	# Регистрация обработчиков
+	dp.register_message_handler(hello, commands=['hello'])
+	dp.register_message_handler(echo, Text())
+	dp.register_message_handler(unknown_command, lambda message: message.text.startswith('/'))
+
+	# Регистрация обработчика ошибок
+	dp.register_errors_handler(error_handler)
+
+	# Установка команд
+	await set_commands(bot)
+
+
+# Запуск поллинга
+
+# Функция установки команд бота
+async def set_commands(bot: Bot):
+	commands = [
+		BotCommand(command="/hello", description="Приветствие от бота"),
+	]
+	await bot.set_my_commands(commands)
