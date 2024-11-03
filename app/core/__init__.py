@@ -18,7 +18,6 @@ def initialization_settings() -> None:
 
 		from .settings import settings
 		from .security import settings_crypto
-
 		info("Application settings initialized successfully.")
 
 	except ValueError as ve:

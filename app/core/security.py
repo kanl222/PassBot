@@ -1,60 +1,76 @@
 import logging
 import os
+from pathlib import Path
 from secrets import choice
 from string import ascii_letters, digits
 from typing import Optional
-from pathlib import Path
-from .settings import settings
-from jose import JWTError, jwt
+
+from jose import jwt, JWTError
 
 
-
-class SettingsCrypto(object):
-    SECRET_KEY: str = None
-    ALGORITHM: str = None
+class SettingsCrypto:
+    ENV_FILE_PATH: Path = Path(os.path.dirname(os.path.abspath(__file__))) / ".." / ".env"
 
     def __init__(self):
-        if settings is not None:
-            self.SECRET_KEY = settings.SECRET_KEY
-            self.ALGORITHM = settings.ALGORITHM
+        self.SECRET_KEY  = os.getenv('SECRET_KEY')
+        self.ALGORITHM = os.getenv('ALGORITHM')
 
     def generate_new_secret_key(self) -> str:
         """
-        Generate a new 64-character secret key composed of letters, digits, and special characters.
+        Generate a new 64-character secret key composed of letters and digits.
 
         :return: A newly generated secret key.
         """
-        secret_key_chars = ascii_letters + digits + '-+)(*?><{}!@#$%^'
+        secret_key_chars = ascii_letters + digits
         return ''.join(choice(secret_key_chars) for _ in range(64))
+
 
     def update_secret_key(self) -> None:
         """
-        Update the secret key in the current settings and log the event.
+        Update the secret key in the current settings, save it to .env, and log the event.
         """
         self.SECRET_KEY = self.generate_new_secret_key()
+        self.save_secret_key_to_env()
         logging.info("Secret key updated successfully.")
 
-    def load_or_generate_secret_key(self) -> None:
+    def save_secret_key_to_env(self) -> None:
         """
-        Load the secret key from the environment, or generate a new one if it's missing.
+        Write the updated SECRET_KEY to the .env file.
         """
-        if not self.SECRET_KEY:
-            logging.info("Secret key not found, generating a new one.")
-            self.update_secret_key()
+        try:
+            # Read lines if the file already exists, else create it
+            lines = []
+            if self.ENV_FILE_PATH.exists():
+                with open(self.ENV_FILE_PATH, "r") as env_file:
+                    lines = env_file.readlines()
+
+            updated = False
+            for i, line in enumerate(lines):
+                if line.startswith("SECRET_KEY="):
+                    lines[i] = f"SECRET_KEY={self.SECRET_KEY}\n"
+                    updated = True
+                    break
+
+            if not updated:
+                lines.append(f"SECRET_KEY={self.SECRET_KEY}\n")
+
+            with open(self.ENV_FILE_PATH, "w") as env_file:
+                env_file.writelines(lines)
+
+            logging.info(f"New secret key saved to .env file at: {self.ENV_FILE_PATH}")
+        except Exception as e:
+            logging.error(f"Failed to update .env with new SECRET_KEY: {e}", exc_info=True)
+            raise
 
 
 try:
     settings_crypto = SettingsCrypto()
-    settings_crypto.load_or_generate_secret_key()
     SECRET_KEY = settings_crypto.SECRET_KEY
     ALGORITHM = settings_crypto.ALGORITHM
-
-    logging.info(f"Using secret key: {SECRET_KEY[:5]}... (hidden for security)")
-    logging.info(f"Algorithm: {ALGORITHM}")
-
+    print(SECRET_KEY, 1)
 except Exception as e:
-    logging.error(f"Error loading crypto settings: {e}", exc_info=True)
-    raise  # Прерываем выполнение, если не удалось загрузить настройки
+    logging.error(f"Error initializing SettingsCrypto: {e}", exc_info=True)
+    raise
 
 
 def encode_data(data: dict) -> Optional[str]:
@@ -69,6 +85,7 @@ def encode_data(data: dict) -> Optional[str]:
     except JWTError as e:
         logging.error(f"Error encoding data into JWT: {e}", exc_info=True)
         return None
+
     except Exception as e:
         logging.error(f"Unexpected error during JWT encoding: {e}", exc_info=True)
         return None

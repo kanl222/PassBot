@@ -1,1 +1,1 @@
-from .app import create_bot
+from .run_bot import running_bot
