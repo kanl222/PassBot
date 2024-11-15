@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+from app.core.settings import IS_POSTGRESQL
+
 # Logging setup
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,7 +21,7 @@ class DatabaseSessionManager:
 		self._session_factory: Optional[sessionmaker] = None
 		self._engine: Optional[AsyncEngine] = None
 
-	def initialize(self, database_url: str, pool_size: int = 10, max_overflow: int = 20) -> None:
+	def initialize(self, database_url: str, pool_size: int = 20, max_overflow: int = 80) -> None:
 		"""
         Initialize the database connection and session factory.
 
@@ -35,10 +37,12 @@ class DatabaseSessionManager:
 		if not database_url or not database_url.strip():
 			raise ValueError("Database connection parameters must be provided.")
 
-		logger.info(f"Connecting to PostgreSQL database at {database_url}...")
+		if IS_POSTGRESQL:
+			logger.info(f"Connecting to PostgreSQL database at {database_url}...")
+		else:
+			logger.info(f"Connecting to SqlLite database at {database_url}...")
 
 		try:
-			# Create the async engine with connection pooling
 			self._engine = create_async_engine(
 				database_url,
 				echo=False,
@@ -48,7 +52,11 @@ class DatabaseSessionManager:
 			self._session_factory = async_sessionmaker(
 				bind=self._engine, class_=AsyncSession, expire_on_commit=False
 			)
-			logger.info("PostgreSQL database initialization complete.")
+			if IS_POSTGRESQL:
+				logger.info("PostgreSQL database initialization complete.")
+			else:
+				logger.info("SqlLite database initialization complete.")
+
 		except Exception as e:
 			logger.error(f"Error initializing database: {e}")
 			raise
@@ -98,7 +106,7 @@ class DatabaseSessionManager:
 			finally:
 				await session.close()
 
-	def get_base(self):
+	def get_base(self) -> Sq:
 		"""
         Return the declarative base for model definitions.
         """

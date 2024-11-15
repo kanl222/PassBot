@@ -1,15 +1,14 @@
 import asyncio
 import logging
 
-from .core.logging import setup_logging
-from .db import db_session_manager, get_db_url
-from .tools.create_config import create_env
 from .core import initialization_settings
+from .core.logging_app import setup_logging
+from .db import db_session_manager, get_db_url
 
 setup_logging()
 initialization_settings()
 
-from .parser.create_session import SessionManager
+from .core.settings import TEST_MODE
 
 
 def db_init_models():
@@ -66,7 +65,6 @@ def create_config_files() -> None:
 
 	:return: None
 	"""
-	from .core.security import settings_crypto
 	try:
 		logging.info("Database configuration file created successfully.")
 	except Exception as e:
@@ -80,7 +78,6 @@ def check_parsing_availability() -> bool:
 	:return: bool - True if parsing is available, False otherwise.
 	"""
 	logging.info("Checking parsing availability...")
-	session_manager = SessionManager()  # Initialize session
 	if not session_manager.initialize_session():
 		logging.error("Parsing check failed: Unable to establish a session.")
 		return False
@@ -96,16 +93,21 @@ def check_parsing_availability() -> bool:
 		return False
 
 def run_bot():
-	"""
-	Launch of the bot, ensuring parsing availability first.
+		"""
+		Launch of the bot, ensuring parsing availability first.
 
-	:return: None
-	"""
-	if not check_parsing_availability():
-		logging.error("Bot launch aborted: Parsing not available.")
-		return
+		:return: None
+		"""
+		if not TEST_MODE:
+			print(12343)
+			if not check_parsing_availability():
+				logging.error("Bot launch aborted: Parsing not available.")
+				return
+		else:
+			logging.warning('TEST_MODE = True')
 
-	from .bot_telegram import running_bot
-	logging.info("Bot is starting...")
-	asyncio.get_event_loop().run_until_complete(running_bot())
-	logging.info("Bot started successfully. Ready to run tasks.")
+
+		from .bot_telegram import running_bot
+		logging.info("Bot is starting...")
+		asyncio.get_event_loop().run_until_complete(running_bot())
+		logging.info("Bot started successfully. Ready to run tasks.")

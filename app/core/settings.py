@@ -1,6 +1,9 @@
 import logging
+
 from pydantic_settings import BaseSettings
 
+IS_POSTGRESQL: bool = True
+TEST_MODE: bool = True
 
 class Settings(BaseSettings):
     SECRET_KEY: str
@@ -12,7 +15,6 @@ class Settings(BaseSettings):
     DB_HOST: str
     DB_PORT: int = 5432
     DB_NAME: str
-    IS_POSTGRESQL: bool = True
 
     class Config:
         env_file = ".env"
@@ -28,7 +30,7 @@ except Exception as e:
 
 def get_db_url() -> str:
     """
-    Генерация URL для подключения к базе данных в зависимости от настроек.
+    Generate a URL to connect to the database depending on the settings
     """
     if settings.IS_POSTGRESQL:
         return f"postgresql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"

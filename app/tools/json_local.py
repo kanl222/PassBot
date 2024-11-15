@@ -1,6 +1,7 @@
 import json
 import os
-from ..core.security import decode_data, encode_data
+
+from ..core.security import decode_data, encode_data , dict_to_str,str_to_dict
 
 
 def import_json_is_crypto(file: str) -> dict:
@@ -12,8 +13,8 @@ def import_json_is_crypto(file: str) -> dict:
     """
     path = os.path.join('.temp', f'{file}')
     with open(path, 'r', encoding='utf-8') as file_:
-        cash = json.load(file_)['cash']
-        return decode_data(cash)
+        cash:str = json.load(file_)['cash']
+        return str_to_dict(encode_data(cash))
 
 
 def create_to_json_is_crypto(namefile: str, data: dict) -> None:
@@ -27,8 +28,8 @@ def create_to_json_is_crypto(namefile: str, data: dict) -> None:
     os.makedirs(os.path.dirname(path), exist_ok=True)
 
     data_new = {
-        'cash': encode_data(data)
+        'cash': encode_data(dict_to_str(data))
     }
 
-    with open(path, 'w', encoding='utf-8') as file_:
+    with open(path, 'w+', encoding='utf-8') as file_:
         json.dump(data_new, file_, ensure_ascii=False, indent=4)
