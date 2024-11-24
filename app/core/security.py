@@ -1,14 +1,14 @@
+import json
 import logging
 import os
 from pathlib import Path
 from secrets import token_hex
 from typing import Optional
 
-import json
-
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import algorithms, Cipher, modes
+from cryptography.hazmat.primitives.padding import PaddingContext
 
 SECRET_KEY = None
 
@@ -16,7 +16,7 @@ class SettingsCrypto:
     ENV_FILE_PATH: Path = Path(os.path.dirname(os.path.abspath(__file__))) / ".." / ".env"
 
     def __init__(self):
-        self.SECRET_KEY = os.getenv('SECRET_KEY')
+        self.SECRET_KEY: str = os.getenv('SECRET_KEY')
 
         if not self.SECRET_KEY:
             logging.warning("SECRET_KEY not found in environment. Generating new key.")
@@ -28,14 +28,14 @@ class SettingsCrypto:
 
     def update_secret_key(self) -> None:
         """Update the secret key in the current settings, save it to .env, and log the event."""
-        self.SECRET_KEY = self.generate_new_secret_key()
+        self.SECRET_KEY: str = self.generate_new_secret_key()
         self.save_secret_key_to_env()
         logging.info("Secret key updated successfully.")
 
     def save_secret_key_to_env(self) -> None:
         """Write the updated SECRET_KEY to the .env file."""
         try:
-            lines = []
+            lines: list = []
             if self.ENV_FILE_PATH.exists():
                 with open(self.ENV_FILE_PATH, "r") as env_file:
                     lines = env_file.readlines()
@@ -61,14 +61,23 @@ class SettingsCrypto:
 
 def pad_data(data: bytes) -> bytes:
     """Pad data to be a multiple of 16 bytes for AES encryption."""
-    padder = padding.PKCS7(algorithms.AES.block_size).padder()
+    padder: PaddingContext = padding.PKCS7(algorithms.AES.block_size).padder()
     return padder.update(data) + padder.finalize()
 
 
 def unpad_data(data: bytes) -> bytes:
     """Remove padding from data after AES decryption."""
-    unpadder = padding.PKCS7(algorithms.AES.block_size).unpadder()
+    unpadder: PaddingContext = padding.PKCS7(algorithms.AES.block_size).unpadder()
     return unpadder.update(data) + unpadder.finalize()
+
+
+try:
+    settings_crypto = SettingsCrypto()
+    SECRET_KEY: str = settings_crypto.SECRET_KEY
+    logging.info("SettingsCrypto initialized successfully.")
+except Exception as e:
+    logging.error("Error initializing SettingsCrypto", exc_info=True)
+    raise
 
 
 def encode_data(data: str) -> Optional[bytes]:
@@ -116,10 +125,3 @@ def str_to_dict(data: Optional[str]) -> Optional[dict]:
     except json.JSONDecodeError:
         raise ValueError("Invalid format: Ensure the string is valid JSON.")
 
-try:
-    settings_crypto = SettingsCrypto()
-    SECRET_KEY = settings_crypto.SECRET_KEY
-    logging.info("SettingsCrypto initialized successfully.")
-except Exception as e:
-    logging.error("Error initializing SettingsCrypto", exc_info=True)
-    raise

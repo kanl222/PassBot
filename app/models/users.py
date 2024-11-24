@@ -21,6 +21,6 @@ class User(SqlAlchemyBase):
 	group = relationship('Group', back_populates='students')
 	sent_messages = relationship('Message', back_populates='sender')
 	absences = relationship('Absence', back_populates='student')
-
+	telegram = relationship('User_Telegram',back_populates='users_telegram'														   '')
 	def __repr__(self):
 		return f"<User(name={self.full_name}, role={self.role})>"
