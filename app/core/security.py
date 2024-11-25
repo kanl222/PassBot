@@ -1,10 +1,9 @@
 import json
 import logging
 import os
-from pathlib import Path
 from secrets import token_hex
 from typing import Optional
-
+from .settings import ENV_FILE_PATH
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import algorithms, Cipher, modes
@@ -13,8 +12,6 @@ from cryptography.hazmat.primitives.padding import PaddingContext
 SECRET_KEY = None
 
 class SettingsCrypto:
-    ENV_FILE_PATH: Path = Path(os.path.dirname(os.path.abspath(__file__))) / ".." / ".env"
-
     def __init__(self):
         self.SECRET_KEY: str = os.getenv('SECRET_KEY')
 
@@ -36,24 +33,25 @@ class SettingsCrypto:
         """Write the updated SECRET_KEY to the .env file."""
         try:
             lines: list = []
-            if self.ENV_FILE_PATH.exists():
-                with open(self.ENV_FILE_PATH, "r") as env_file:
+            if ENV_FILE_PATH.exists():
+                with open(ENV_FILE_PATH, "r") as env_file:
                     lines = env_file.readlines()
-
+            print(lines)
             updated = False
             for i, line in enumerate(lines):
                 if line.startswith("SECRET_KEY="):
                     lines[i] = f"SECRET_KEY={self.SECRET_KEY}\n"
                     updated = True
-                    break
+                else:
+                    lines[i] = line
 
             if not updated:
                 lines.append(f"SECRET_KEY={self.SECRET_KEY}\n")
 
-            with open(self.ENV_FILE_PATH, "w") as env_file:
+            with open(ENV_FILE_PATH, "w") as env_file:
                 env_file.writelines(lines)
 
-            logging.info(f"New secret key saved to .env file at: {self.ENV_FILE_PATH}")
+            logging.info(f"New secret key saved to .env file at: {ENV_FILE_PATH}")
         except Exception as e:
             logging.error("Failed to update .env with new SECRET_KEY", exc_info=True)
             raise

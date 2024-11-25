@@ -106,7 +106,7 @@ class DatabaseSessionManager:
 			finally:
 				await session.close()
 
-	def get_base(self) -> Sq:
+	def get_base(self) -> SqlAlchemyBase:
 		"""
         Return the declarative base for model definitions.
         """

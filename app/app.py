@@ -1,14 +1,18 @@
 import asyncio
 import logging
 
-from .core import initialization_settings
 from .core.logging_app import setup_logging
+from .core import initialization_settings
+
+try:
+	setup_logging()
+	initialization_settings()
+except ValueError as e:
+	from .tools.create_config import create_config_files
+	create_config_files()
+
 from .db import db_session_manager, get_db_url
-
-setup_logging()
-initialization_settings()
-
-from .core.settings import TEST_MODE
+from .parser import SessionManager
 
 
 def db_init_models():
@@ -59,17 +63,6 @@ def init_user(user_login, user_password):
 		logging.error(f"Error encoding user data: {e}", exc_info=True)
 		raise
 
-def create_config_files() -> None:
-	"""
-	Create configuration files for crypto and database settings.
-
-	:return: None
-	"""
-	try:
-		logging.info("Database configuration file created successfully.")
-	except Exception as e:
-		logging.error(f"Error creating configuration files: {e}", exc_info=True)
-		raise
 
 def check_parsing_availability() -> bool:
 	"""
@@ -78,12 +71,12 @@ def check_parsing_availability() -> bool:
 	:return: bool - True if parsing is available, False otherwise.
 	"""
 	logging.info("Checking parsing availability...")
+	session_manager = SessionManager()
 	if not session_manager.initialize_session():
 		logging.error("Parsing check failed: Unable to establish a session.")
 		return False
 
-	# Attempt a test request to check if parsing is functional
-	test_url = "https://www.osu.ru/iss/lks/?page=progress"  # Replace with a real parsing URL
+	test_url = "https://www.osu.ru/iss/lks/?page=progress"
 	response = session_manager.get(test_url)
 	if response and response.status_code == 200:
 		logging.info("Parsing check successful. Parsing is available.")
@@ -93,21 +86,16 @@ def check_parsing_availability() -> bool:
 		return False
 
 def run_bot():
-		"""
-		Launch of the bot, ensuring parsing availability first.
+	"""
+	Launch of the bot, ensuring parsing availability first.
 
-		:return: None
-		"""
-		if not TEST_MODE:
-			print(12343)
-			if not check_parsing_availability():
-				logging.error("Bot launch aborted: Parsing not available.")
-				return
-		else:
-			logging.warning('TEST_MODE = True')
+	:return: None
+	"""
+	if not check_parsing_availability():
+		logging.error("Bot launch aborted: Parsing not available.")
+		return
 
-
-		from .bot_telegram import running_bot
-		logging.info("Bot is starting...")
-		asyncio.get_event_loop().run_until_complete(running_bot())
-		logging.info("Bot started successfully. Ready to run tasks.")
+	from .bot_telegram import running_bot
+	logging.info("Bot is starting...")
+	asyncio.get_event_loop().run_until_complete(running_bot())
+	logging.info("Bot started successfully. Ready to run tasks.")

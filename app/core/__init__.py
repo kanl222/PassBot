@@ -1,6 +1,6 @@
 from logging import error, info
 
-from dotenv import load_dotenv
+
 
 __name__ = 'core'
 
@@ -12,10 +12,7 @@ def initialization_settings() -> None:
 	:raises Exception: If any settings are not configured correctly.
 	"""
 	info("Initializing application settings...")
-
 	try:
-		load_dotenv()
-
 		from .settings import settings
 		from .security import settings_crypto
 		info("Application settings initialized successfully.")
