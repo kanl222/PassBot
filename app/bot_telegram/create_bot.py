@@ -14,9 +14,20 @@ dp: Dispatcher = Dispatcher(storage=storage)
 
 
 async def init_bot() -> Bot:
+    """
+    Initialize the bot, fetch its information, and display it in the logs.
+    """
     _bot: Bot = Bot(token=token)
     bot_info = await _bot.get_me()
-    logging.info(f"\nBot launched:\n{COLORS['DEBUG']}NAME = {bot_info.full_name}]\nID = {bot_info.id}")
+
+    # Logging bot details with colors
+    logging.info(
+        f"\n{COLORS['INFO']}Bot successfully launched!\n"
+        f"{COLORS['DEBUG']}Bot Name: {bot_info.full_name}\n"
+        f"Bot Username: @{bot_info.username}\n"
+        f"Bot ID: {bot_info.id}\n"
+    )
+
     return _bot
 
 

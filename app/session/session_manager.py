@@ -1,18 +1,23 @@
+from curses import wrapper
+
 import aiohttp
 import asyncio
 import logging
 from aiohttp import ClientSession, BasicAuth
 from bs4 import BeautifulSoup
-from ..tools.json_local import import_json_is_crypto
-
+from app.tools.json_local import import_json_is_crypto
+from ..parsers.urls import link_to_activity, link_to_personal
+from ..parsers.urls import *
 logging.basicConfig(level=logging.INFO)
+from functools import wraps
+
+session_manager = None
 
 
-async def is_logining(response: aiohttp.ClientResponse) -> bool:
+async def is_authenticated(response: aiohttp.ClientResponse) -> bool:
     """Check if login is successful based on the HTML response."""
     try:
-        text = await response.text()
-        document = BeautifulSoup(text, features='lxml')
+        document = BeautifulSoup(await response.text(), features='lxml')
         error_spans = document.find_all('span', class_='error')
         if error_spans and 'неверное сочетание логина и пароля' in error_spans[0].text:
             return False
@@ -25,6 +30,17 @@ async def is_logining(response: aiohttp.ClientResponse) -> bool:
         return False
 
 
+def auth_required(func):
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        session = args[0]
+        with session.request("GET", link_to_personal) as response:
+            if not is_authenticated(response):
+                session.login()
+        return await func(*args, **kwargs)
+    return wrapper
+
+
 class SessionManager:
     def __init__(self, login_url: str = 'https://www.osu.ru/iss/1win/'):
         self.login_url = login_url
@@ -35,7 +51,13 @@ class SessionManager:
             logging.error("User data not found in 'user.json'. Initialization failed.")
             raise ValueError("Missing user credentials.")
 
-        self.auth = BasicAuth(self.payload.get('login'), self.payload.get('pwd'))
+        login = self.payload.get('login')
+        pwd = self.payload.get('pwd')
+        if not login or not pwd:
+            logging.error("Login or password missing in user data.")
+            raise ValueError("Both 'login' and 'pwd' must be present in 'user.json'.")
+
+        self.auth = BasicAuth(login, pwd)
 
     async def __aenter__(self):
         """Async context manager entry for session management."""
@@ -59,16 +81,20 @@ class SessionManager:
         """Authenticate the session by logging in to the server."""
         try:
             async with self.session.post(self.login_url, data=self.payload) as response:
-                if response.status == 200 and await is_logining(response):
+                if response.status == 200 and await is_authenticated(response):
                     logging.info("Login successful.")
                     return True
                 else:
                     logging.error("Login failed with status %s: %s", response.status, await response.text())
                     return False
+        except KeyError as e:
+            logging.error(f"Missing key in payload: {e}")
+            return False
         except aiohttp.ClientError as e:
             logging.error(f"Login failed due to client error: {e}")
             return False
 
+    @auth_required
     async def request_with_relogin(self, method: str, url: str, **kwargs) -> aiohttp.ClientResponse:
         """Wrapper to check and maintain session validity for GET/POST requests."""
         try:
@@ -89,16 +115,39 @@ class SessionManager:
         return await self.request_with_relogin("post", url, data=data)
 
 
-async def main():
-    async with SessionManager() as session_manager:
-        if await session_manager.initialize_session():
-            response = await session_manager.get(session_manager.login_url)
-            if response:
-                text = await response.text()
-                print(text)
-            else:
-                logging.error("Failed to retrieve data after session initialization.")
+async def check_parsing_availability() -> bool:
+    """
+    Check if parsing is available by initializing a session and testing data retrieval.
+
+    :return: bool - True if parsing is available, False otherwise.
+    """
+    logging.info("Checking parsing availability...")
+    if not await session_manager.initialize_session():
+        logging.error("Parsing check failed: Unable to establish a session.")
+        return False
+
+    test_url = "https://www.osu.ru/iss/lks/?page=progress"
+    response = await session_manager.get(test_url)
+
+    if is_authenticated(response) and response and response.status == 200:
+        logging.info("Parsing check successful. Parsing is available.")
+        return True
+    else:
+        logging.error("Parsing check failed: Unable to retrieve test data.")
+        return False
+
+
+def main_session_manager():
+    global session_manager
+    session_manager = SessionManager()
+
+    with session_manager:
+        parsing_available = check_parsing_availability()
+        if parsing_available:
+            logging.info("Parsing is ready to proceed.")
+        else:
+            logging.error("Parsing is not available. Please check your configuration.")
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main_session_manager()

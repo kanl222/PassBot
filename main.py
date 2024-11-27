@@ -12,10 +12,9 @@ def create_configs():
     Command to generate config files for the application.
     """
     try:
-        from app.tools.create_config import create_config_files
+        from app.tools.create_config import create_env
 
-        create_env(bot_token="YOUR_BOT_TOKEN", db_user="DB_USER",
-                       db_password="DB_PASSWORD")
+        create_env(bot_token="YOUR_BOT_TOKEN", db_user="DB_USER",db_password="DB_PASSWORD")
         logging.info("Configuration files created successfully.")
 
     except Exception as e:
