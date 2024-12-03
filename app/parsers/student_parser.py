@@ -49,4 +49,3 @@ async def parse_users(response: ClientResponse, db_session):
             except IntegrityError:
                 db_session.rollback()
                 logging.warning(f"Пользователь {user.user_name} уже существует в базе данных.")
-

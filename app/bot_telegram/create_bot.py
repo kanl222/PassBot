@@ -19,8 +19,6 @@ async def init_bot() -> Bot:
     """
     _bot: Bot = Bot(token=token)
     bot_info = await _bot.get_me()
-
-    # Logging bot details with colors
     logging.info(
         f"\n{COLORS['INFO']}Bot successfully launched!\n"
         f"{COLORS['DEBUG']}Bot Name: {bot_info.full_name}\n"

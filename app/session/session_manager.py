@@ -10,21 +10,12 @@ logging.basicConfig(level=logging.INFO)
 
 
 class SessionManager:
-    def __init__(self, login_url: str = 'https://www.osu.ru/iss/1win/',user:User = None):
+    def __init__(self, login_url: str = 'https://www.osu.ru/iss/1win/', user: dict[str:str, str:str] = None):
         self.login_url = login_url
         self.session: ClientSession = None
-        self.payload = User
-
-        if not self.payload:
-            logging.error("User data not found in 'user.json'. Initialization failed.")
-            raise ValueError("Missing user credentials.")
-
+        self.payload = user
         login = self.payload.get('login')
         pwd = self.payload.get('pwd')
-        if not login or not pwd:
-            logging.error("Login or password missing in user data.")
-            raise ValueError("Both 'login' and 'pwd' must be present in 'user.json'.")
-
         self.auth = BasicAuth(login, pwd)
 
     async def __aenter__(self):

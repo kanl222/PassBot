@@ -26,12 +26,14 @@ class Settings:
     DB_PORT: int = int(os.getenv("DB_PORT", 5432))
     DB_NAME: str = os.getenv("DB_NAME", "")
 
+    IS_TELEGRAM_BOT_TOKEN:bool = bool(TELEGRAM_BOT_TOKEN)
+
     def validate(self):
         """Validate the required settings."""
         if not self.SECRET_KEY:
             from .security import SettingsCrypto
             SettingsCrypto()
-        if not self.TELEGRAM_BOT_TOKEN:
+        if not self.IS_TELEGRAM_BOT_TOKEN:
             raise ValueError("BOT_TOKEN is required but not set.")
         if IS_POSTGRESQL and not all([self.DB_USER, self.DB_PASSWORD, self.DB_HOST, self.DB_NAME]):
             raise ValueError("Database configuration is incomplete.")

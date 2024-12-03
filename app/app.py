@@ -3,7 +3,7 @@ import logging
 
 from .core.logging_app import setup_logging
 from .core import initialization_settings
-from .core.settings import TEST_MODE
+from .core.settings import TEST_MODE, settings
 
 try:
     setup_logging()
@@ -14,7 +14,6 @@ except ValueError as e:
     create_config_files()
 
 from .db import db_session_manager, get_db_url
-from app.session.session_manager import main_session_manager
 
 
 def db_init_models():
@@ -55,14 +54,13 @@ def run_bot():
     :return: None
     """
     try:
-        if not TEST_MODE:
-            logging.info("Initializing session manager...")
-            main_session_manager()
-
-        from .bot_telegram import running_bot
-        logging.info("Bot is starting...")
-        asyncio.get_event_loop().run_until_complete(running_bot())
-        logging.info("Bot started successfully. Ready to run tasks.")
+        if settings.IS_TELEGRAM_BOT_TOKEN:
+            from .bot_telegram import running_bot
+            logging.info("Bot is starting...")
+            asyncio.run(running_bot())
+            logging.info("Bot started successfully. Ready to run tasks.")
+        else:
+            logging.error('Telegram bot token is missing. Bot will not start.')
     except Exception as e:
         logging.error(f"An error occurred while starting the bot: {e}", exc_info=True)
         raise
