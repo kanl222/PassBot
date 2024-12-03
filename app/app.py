@@ -48,26 +48,6 @@ async def _async_init_models():
         logging.error(f"Error initializing database models: {e}", exc_info=True)
         raise
 
-
-def init_user(user_login, user_password):
-    """
-    Initializing the user for parsing.
-
-    :return: None
-    """
-    from .tools.json_local import create_to_json_is_crypto
-    user_data = {
-        'login': user_login,
-        'pwd': user_password
-    }
-    create_to_json_is_crypto('user', user_data)
-    try:
-        logging.info(f"User data encoded successfully for user: {user_login}")
-    except Exception as e:
-        logging.error(f"Error encoding user data: {e}", exc_info=True)
-        raise
-
-
 def run_bot():
     """
     Launch the bot, ensuring parsing availability first.

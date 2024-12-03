@@ -3,9 +3,11 @@ from aiohttp import ClientResponse
 from urllib.parse import urlparse
 from urllib.parse import parse_qs
 from sqlalchemy.exc import IntegrityError
+from ..db.db_session import with_session
 from ..models import Group
 import logging
 
+@with_session
 async def parse_groups(response: ClientResponse,db_session):
     """
     Parse group data from the HTML response and save it to the database.
@@ -34,7 +36,6 @@ async def parse_groups(response: ClientResponse,db_session):
                         group = Group(group_name=group_name, group_id=group_id)
                         groups.append(group)
 
-        # Сохранение в базу данных
         for group in groups:
             try:
                 db_session.add(group)

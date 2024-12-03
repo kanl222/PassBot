@@ -3,17 +3,17 @@ import asyncio
 import logging
 from aiohttp import ClientSession, BasicAuth
 from bs4 import BeautifulSoup
-from app.tools.json_local import import_json_is_crypto
 from ..parsers.urls import link_to_activity, link_to_personal
+from ..models.__all_models import User
 
 logging.basicConfig(level=logging.INFO)
 
 
 class SessionManager:
-    def __init__(self, login_url: str = 'https://www.osu.ru/iss/1win/'):
+    def __init__(self, login_url: str = 'https://www.osu.ru/iss/1win/',user:User = None):
         self.login_url = login_url
         self.session: ClientSession = None
-        self.payload = import_json_is_crypto('user.json')
+        self.payload = User
 
         if not self.payload:
             logging.error("User data not found in 'user.json'. Initialization failed.")

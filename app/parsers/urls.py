@@ -12,7 +12,7 @@ link_to_supervision = f"{BASE_URL}?page=supervision"
 link_to_profile = f"{BASE_URL}?page=profile"
 link_to_progress = f"https://www.osu.ru/iss/lks/?page=progress"
 link_to_personal = f"{BASE_URL}?page=personal"
-# Parameterized URLs
+link_to_unlogin = f"{BASE_URL}page=unlogin"
 link_to_list_group_students = f"{BASE_URL}?page=students&amp;group={{id_group}}"
 link_to_activity = f"{BASE_URL}?page=supervision&amp;view=visits&amp;group={{id_group}}"
 
