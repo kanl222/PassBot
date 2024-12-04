@@ -10,10 +10,10 @@ import logging
 @with_session
 async def parse_users(response: ClientResponse, db_session):
     """
-    Анализирует данные пользователей из HTML-ответа и сохраняет их в базе данных.
+    Parses user data from the HTML response and stores it in the database.
 
-    :param response: Объект ClientResponse, содержащий HTML с данными пользователей.
-    :param db_session: Сеанс SQLAlchemy для операций с базой данных.
+    :param response: A ClientResponse object containing HTML with user data.
+    :param db_session: A SQLAlchemy session for database operations.
     :return: None.
     """
     try:

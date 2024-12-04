@@ -3,20 +3,23 @@ import asyncio
 import logging
 from aiohttp import ClientSession, BasicAuth
 from bs4 import BeautifulSoup
-from ..parsers.urls import link_to_activity, link_to_personal
-from ..models.__all_models import User
+from ..parsers.urls import link_to_activity, link_to_personal, link_to_login
 
 logging.basicConfig(level=logging.INFO)
 
 
 class SessionManager:
-    def __init__(self, login_url: str = 'https://www.osu.ru/iss/1win/', user: dict[str:str, str:str] = None):
-        self.login_url = login_url
+    def __init__(self, login: str, password: str):
+        """
+        Manages a session for a user.
+
+        :param login: User login.
+        :param password: User password.
+        """
+        self.login_url = link_to_login
         self.session: ClientSession = None
-        self.payload = user
-        login = self.payload.get('login')
-        pwd = self.payload.get('pwd')
-        self.auth = BasicAuth(login, pwd)
+        self.auth = BasicAuth(login, password)
+        self.payload = {"login": login, "pwd": password}
 
     async def __aenter__(self):
         """Async context manager entry for session management."""
@@ -87,32 +90,42 @@ class SessionManager:
         return await self.request_with_relogin("post", url, data=data)
 
 
-async def check_parsing_availability(session_manager: SessionManager) -> bool:
+async def get_user_session(login: str, password: str) -> SessionManager:
     """
-    Check if parsing is available by testing data retrieval from a protected page.
+    Returns the session for the user if authentication was successful.
 
-    :return: bool - True if parsing is available, False otherwise.
+    :param login: User login.
+    :param password: User password.
+    :return: SessionManager instance to work with the session, or None if authentication failed.
     """
-    logging.info("Checking parsing availability...")
-    test_url = "https://www.osu.ru/iss/lks/?page=progress"
-    response = await session_manager.get(test_url)
-
-    if response and response.status == 200:
-        logging.info("Parsing check successful. Parsing is available.")
-        return True
-
-    logging.error("Parsing check failed: Unable to retrieve test data.")
-    return False
+    session_manager = SessionManager(login, password)
+    async with session_manager as sm:
+        if await sm.login():
+            logging.info(f"Session created successfully for user: {login}")
+            return sm
+        else:
+            logging.error(f"Failed to create session for user: {login}")
+            return None
 
 
 async def main():
-    """Main entry point for session management and parsing availability check."""
-    async with SessionManager() as session_manager:
-        parsing_available = await check_parsing_availability(session_manager)
-        if parsing_available:
-            logging.info("Parsing is ready to proceed.")
+    """Example of using the function to get a session."""
+    user_login = "example_login"
+    user_password = "example_password"
+
+    session_manager = await get_user_session(user_login, user_password)
+
+    if session_manager:
+        test_url = "https://www.osu.ru/iss/lks/?page=progress"
+        response = await session_manager.get(test_url)
+        if response:
+            logging.info("Data fetched successfully.")
+            text = await response.text()
+            print(text)
         else:
-            logging.error("Parsing is not available. Please check your configuration.")
+            logging.error("Failed to fetch data.")
+    else:
+        logging.error("Failed to authenticate user.")
 
 
 if __name__ == "__main__":

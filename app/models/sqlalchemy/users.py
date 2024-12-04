@@ -21,7 +21,5 @@ class User(SqlAlchemyBase):
 	group_id = Column(Integer, ForeignKey('groups.id'), nullable=True)
 	_encrypted_data_user= Column(String(500), nullable=True)
 
-	# Relationships
 	group = relationship('Group', back_populates='students')
-	sent_messages = relationship('Message', back_populates='sender')
 	absences = relationship('Absence', back_populates='student')

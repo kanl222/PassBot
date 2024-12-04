@@ -61,17 +61,14 @@ def setup_logging() -> None:
 
     dictConfig(logging_config)
 
-    # Устанавливаем цветной форматтер только для консольного обработчика
     logger = logging.getLogger()
     for handler in logger.handlers:
         if isinstance(handler, logging.StreamHandler):
             handler.setFormatter(ColoredFormatter())
 
 
-# Настраиваем логирование
 setup_logging()
 
-# Примеры использования
 if __name__ == '__main__':
     logging.debug("This is a debug message.")
     logging.info("This is an informational message.")
