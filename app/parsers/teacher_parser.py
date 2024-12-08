@@ -7,7 +7,7 @@ import logging
 
 
 @with_session
-async def parse_teacher(response: ClientResponse, data_user: dict, db_session):
+async def parse_teacher(response: ClientResponse, db_session) -> User:
     """
     Parses teacher data and saves it to the database.
 
@@ -17,35 +17,21 @@ async def parse_teacher(response: ClientResponse, data_user: dict, db_session):
     """
     try:
         soup = BeautifulSoup(await response.text(), 'lxml')
-        name_tag = soup.find(id="fio_holder")
+        name_tag = soup.find("div", id="title_info").find("p").find("b")
         if not name_tag:
-            raise ValueError("Не удалось найти элемент с id 'fio_holder'. Проверьте структуру HTML.")
+            raise ValueError("Could not find element with id 'fio_holder'. Please check HTML version.")
 
         name = name_tag.get_text(strip=True)
 
-        login = data_user.get('login')
-        password = data_user.get('password')
-
-        if not login or not password:
-            raise ValueError("Логин и пароль обязательны для сохранения преподавателя.")
 
         user = User(
             full_name=name,
-            telegram_id=None,
-            _login=login,
-            _encrypted_password=password,
             role=UserRole.TEACHER
         )
 
-        try:
-            db_session.add(user)
-            db_session.commit()
-            logging.info(f"Преподаватель {user.full_name} сохранён в базе данных.")
-        except IntegrityError:
-            db_session.rollback()
-            logging.warning(f"Преподаватель {user.full_name} уже существует в базе данных.")
+        return user
 
     except Exception as e:
         db_session.rollback()
-        logging.error(f"Ошибка парсинга или сохранения преподавателя: {e}")
+        logging.error(f"Error parsing or saving teacher: {e}")
         raise

@@ -8,7 +8,7 @@ from ..models import Group
 import logging
 
 @with_session
-async def parse_groups(response: ClientResponse,db_session):
+async def parse_groups(response: ClientResponse,db_session)-> list[Group]:
     """
     Parse group data from the HTML response and save it to the database.
 
@@ -44,6 +44,8 @@ async def parse_groups(response: ClientResponse,db_session):
             except IntegrityError:
                 db_session.rollback()
                 logging.error(f"Group {group.group_name} already exists in the database.")
+
+        return group
 
     except Exception as e:
         db_session.rollback()

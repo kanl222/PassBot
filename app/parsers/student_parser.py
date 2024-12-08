@@ -3,12 +3,12 @@ from aiohttp import ClientResponse
 from urllib.parse import urlparse, parse_qs
 from sqlalchemy.exc import IntegrityError
 from ..db.db_session import with_session
-from ..models import User
+from ..models import User,UserRole
 import logging
 
 
 @with_session
-async def parse_users(response: ClientResponse, db_session):
+async def parse_users(response: ClientResponse, db_session ) -> list[User]:
     """
     Parses user data from the HTML response and stores it in the database.
 
@@ -49,3 +49,38 @@ async def parse_users(response: ClientResponse, db_session):
             except IntegrityError:
                 db_session.rollback()
                 logging.warning(f"Пользователь {user.user_name} уже существует в базе данных.")
+        return users
+    except Exception as e:
+        logging.error()
+
+
+@with_session
+async def parse_student(response: ClientResponse, db_session) -> User:
+    """
+    Parses teacher data and saves it to the database.
+
+    :param response: ClientResponse object with HTML page of teacher profile.
+    :param data_user: Dictionary with user data (login, password).
+    :param db_session: SQLAlchemy session for database operations.
+    """
+    try:
+        soup = BeautifulSoup(await response.text(), 'lxml')
+        name_tag = soup.find("div", id="title_info").find("p").find("b")
+        if not name_tag:
+            raise ValueError("Could not find element with id 'fio_holder'. Please check HTML version.")
+
+        name = name_tag.get_text(strip=True)
+
+        user = User(
+            full_name=name,
+            role=UserRole.Student
+        )
+
+        return user
+
+    except Exception as e:
+        db_session.rollback()
+        logging.error(f"Error parsing or saving teacher: {e}")
+        raise
+
+
