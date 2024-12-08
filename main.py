@@ -1,7 +1,6 @@
 import logging
 import sys
 import typer
-from sqlalchemy.sql.operators import from_
 
 cli = typer.Typer(no_args_is_help=True)
 
@@ -34,24 +33,6 @@ def init_db_models():
     except Exception as e:
         logging.error(f"Error initializing database models: {e}", exc_info=True)
         typer.echo(f"Error initializing database models: {e}", err=True)
-        sys.exit(1)
-
-
-@cli.command(help="Initialize user")
-def init_user(username: str = typer.Option(..., help="User login"),
-              password: str = typer.Option(..., help="User password")):
-    """
-    Command to initialize a user for parsing or other operations.
-
-    :param username: The user's login.
-    :param password: The user's password.
-    """
-    from app.app import init_user
-    try:
-        init_user(username, password)
-    except Exception as e:
-        logging.error(f"Error initializing user: {e}", exc_info=True)
-        typer.echo(f"Error initializing user: {e}", err=True)
         sys.exit(1)
 
 

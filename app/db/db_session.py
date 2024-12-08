@@ -7,14 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-
 from app.core.settings import IS_POSTGRESQL
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 SqlAlchemyBase = declarative_base()
-
+from . import __all_models
 
 class DatabaseSessionManager:
     def __init__(self):
@@ -34,7 +33,9 @@ class DatabaseSessionManager:
             logger.warning("Database is already initialized.")
             return
 
-        if not database_url or not database_url.strip():
+
+
+        if not database_url:
             raise ValueError("Database connection parameters must be provided.")
 
         if IS_POSTGRESQL:
@@ -46,8 +47,6 @@ class DatabaseSessionManager:
             self._engine = create_async_engine(
                 database_url,
                 echo=False,
-                pool_size=pool_size,
-                max_overflow=max_overflow
             )
             self._session_factory = async_sessionmaker(
                 bind=self._engine, class_=AsyncSession, expire_on_commit=False
@@ -71,13 +70,12 @@ class DatabaseSessionManager:
             raise ValueError("Engine is not initialized. Call initialize() first.")
 
         logger.info("Initializing database models...")
-
         try:
             async with self._engine.begin() as conn:
                 if drop_existing:
                     logger.info("Dropping all existing tables...")
                     await conn.run_sync(SqlAlchemyBase.metadata.drop_all)
-
+                print(SqlAlchemyBase.metadata)
                 logger.info("Creating all tables...")
                 await conn.run_sync(SqlAlchemyBase.metadata.create_all)
 

@@ -3,7 +3,7 @@ import asyncio
 import logging
 from aiohttp import ClientSession, BasicAuth
 from bs4 import BeautifulSoup
-from ..parsers.urls import link_to_activity, link_to_personal, link_to_login
+from ..parsers.urls import link_to_activity, link_to_personal, link_to_login,BASE_PREPOD_URL
 
 logging.basicConfig(level=logging.INFO)
 
@@ -68,9 +68,9 @@ class SessionManager:
 
     async def request_with_relogin(self, method: str, url: str, **kwargs) -> aiohttp.ClientResponse:
         """Ensure the session is valid before making a request."""
-        if not await self.ensure_authenticated():
-            logging.error("Unable to authenticate session. Request aborted.")
-            return None
+        # if not await self.ensure_authenticated():
+        #     logging.error("Unable to authenticate session. Request aborted.")
+        #     return None
 
         try:
             async with self.session.request(method.upper(), url, **kwargs) as response:
@@ -106,6 +106,33 @@ async def get_user_session(login: str, password: str) -> SessionManager:
         else:
             logging.error(f"Failed to create session for user: {login}")
             return None
+
+
+
+async def is_teacher(session: ClientSession) -> bool:
+    """
+    Checks if the user is a teacher.
+
+    :param session: Asynchronous aiohttp session authorized for the user.
+    :return: True if the user is a teacher, otherwise False.
+    """
+    try:
+        async with session.get(BASE_PREPOD_URL) as response:
+            if response.status != 200:
+                logging.error(f"Error accessing {BASE_PREPOD_URL}: {response.status}")
+                return False
+            soup = BeautifulSoup(await response.text(), 'lxml')
+
+            error_span = soup.find('span', class_='error')
+            if error_span and "Нет доступа к Личному кабинету преподавателя!" in error_span.text:
+                logging.info("The user is not a teacher.")
+                return False
+            logging.info("The user is a teacher.")
+            return True
+
+    except Exception as e:
+        logging.error(f"Teacher verification error: {e}")
+        return False
 
 
 async def main():

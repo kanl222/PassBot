@@ -1,8 +1,7 @@
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
 
-from app.db.db_session import SqlAlchemyBase
-
+from ..db_session import SqlAlchemyBase
 
 class Group(SqlAlchemyBase):
 	__tablename__ = 'groups'

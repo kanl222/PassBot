@@ -4,7 +4,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 ENV_FILE_PATH: Path = Path(os.path.dirname(os.path.abspath(__file__))) / ".." / ".env"
-IS_POSTGRESQL: bool = True
+IS_POSTGRESQL: bool = False
 TEST_MODE: bool = True
 
 if ENV_FILE_PATH.exists():
@@ -51,9 +51,10 @@ def get_db_url() -> str:
     Generate a URL to connect to the database depending on the settings.
     """
     if IS_POSTGRESQL:
-        return f"postgresql://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+        return f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
     else:
-        return "sqlite:///./app/db.sqlite3"
+        db_path = Path("./database.db").resolve()
+        return f"sqlite+aiosqlite:///{db_path}"
 
 if __name__ == "__main__":
     logging.info(f"Secret Key: {settings.SECRET_KEY[:5]}... (hidden for security)")

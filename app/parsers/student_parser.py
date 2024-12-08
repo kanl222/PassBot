@@ -8,7 +8,7 @@ import logging
 
 
 @with_session
-async def parse_users(response: ClientResponse, db_session ) -> list[User]:
+async def parse_students_list(response: ClientResponse, db_session ) -> list[User]:
     """
     Parses user data from the HTML response and stores it in the database.
 
@@ -54,33 +54,30 @@ async def parse_users(response: ClientResponse, db_session ) -> list[User]:
         logging.error()
 
 
-@with_session
-async def parse_student(response: ClientResponse, db_session) -> User:
-    """
-    Parses teacher data and saves it to the database.
 
-    :param response: ClientResponse object with HTML page of teacher profile.
-    :param data_user: Dictionary with user data (login, password).
-    :param db_session: SQLAlchemy session for database operations.
+async def parse_student(response: ClientResponse) -> User:
+    """
+    Parses the student data from the HTML response .
+
+    :param response: The ClientResponse object with the HTML page of the student profile.
+    :return: The User object representing the student.
     """
     try:
         soup = BeautifulSoup(await response.text(), 'lxml')
         name_tag = soup.find("div", id="title_info").find("p").find("b")
         if not name_tag:
-            raise ValueError("Could not find element with id 'fio_holder'. Please check HTML version.")
+            raise ValueError("Could not find element named student. Please check your HTML.")
 
         name = name_tag.get_text(strip=True)
 
         user = User(
             full_name=name,
-            role=UserRole.Student
+            role=UserRole.STUDENT
         )
 
         return user
 
     except Exception as e:
-        db_session.rollback()
-        logging.error(f"Error parsing or saving teacher: {e}")
+        logging.error(f"Student parse error: {e}")
         raise
-
 

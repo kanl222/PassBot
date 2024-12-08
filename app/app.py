@@ -13,8 +13,8 @@ except ValueError as e:
 
     create_config_files()
 
-from .db import db_session_manager, get_db_url
-
+from .db import db_session_manager
+from .core.settings import get_db_url
 
 def db_init_models():
     """
