@@ -1,6 +1,6 @@
 from bs4 import BeautifulSoup
 from aiohttp import ClientResponse
-from app.db.models.users import User, UserRole
+from ..db.models.users import User, UserRole
 import logging
 
 

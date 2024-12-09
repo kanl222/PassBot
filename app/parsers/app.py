@@ -8,13 +8,6 @@ from app.db.models.users import User
 from sqlalchemy.exc import IntegrityError
 
 
-user_input_data = {
-    'id_user_telegram': 32423423,  # Telegram ID пользователя
-    'password': '324234',          # Пароль в открытом виде
-    'login': 'ekjojrow',           # Логин пользователя
-}
-
-
 @with_session
 async def authenticated_users(user_input_data: dict, db_session) -> dict:
     """
@@ -32,7 +25,6 @@ async def authenticated_users(user_input_data: dict, db_session) -> dict:
     telegram_id = user_input_data['id_user_telegram']
 
     try:
-        # Проверяем, существует ли пользователь в базе данных
         existing_user = await db_session.execute(
             db_session.query(User).filter_by(telegram_id=telegram_id)
         )
@@ -46,7 +38,6 @@ async def authenticated_users(user_input_data: dict, db_session) -> dict:
                 "role": existing_user.role.value
             }
 
-        # Аутентификация через get_user_session
         async with get_user_session(login, password) as sess:
             async with sess.get(link_to_login) as response:
                 if response.status == 200:
@@ -66,7 +57,6 @@ async def authenticated_users(user_input_data: dict, db_session) -> dict:
                             "user": teacher.full_name
                         }
                     else:
-                        # Парсинг данных студента
                         student = await parse_student(response, db_session)
                         student.telegram_id = telegram_id
                         db_session.add(student)
@@ -79,7 +69,6 @@ async def authenticated_users(user_input_data: dict, db_session) -> dict:
                         }
 
                 else:
-                    # Ошибка аутентификации
                     error_details = await response.text()
                     logging.error(f"Authentication failed for user: {login}. Error: {error_details}")
                     return {

@@ -3,7 +3,7 @@ from aiohttp import ClientResponse
 from urllib.parse import urlparse, parse_qs
 from sqlalchemy.exc import IntegrityError
 from ..db.db_session import with_session
-from ..models import User,UserRole
+from ..db.models.users import User,UserRole
 import logging
 
 

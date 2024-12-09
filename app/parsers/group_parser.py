@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 from urllib.parse import parse_qs
 from sqlalchemy.exc import IntegrityError
 from ..db.db_session import with_session
-from ..models import Group
+from ..db.__all_models import Group
 import logging
 
 @with_session

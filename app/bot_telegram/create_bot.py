@@ -6,7 +6,7 @@ from aiogram_sqlite_storage.sqlitestore import SQLStorage
 
 from ..core.logging_app import COLORS
 from ..core.settings import settings
-
+from .handlers import __all_handlers
 storage: SQLStorage = SQLStorage('BotStorage.db', serializing_method='pickle')
 
 token: str = settings.TELEGRAM_BOT_TOKEN
@@ -30,5 +30,6 @@ async def init_bot() -> Bot:
 
 
 bot: Bot = asyncio.get_event_loop().run_until_complete(init_bot())
+dp.include_router(__all_handlers)
 
 __all__ = ['dp', 'bot']
