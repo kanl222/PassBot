@@ -19,7 +19,7 @@ class ColoredFormatter(logging.Formatter):
         color = COLORS.get(record.levelname, self.RESET)
         log_fmt = (
             f"{self.COLOR_TIME}[%(asctime)s] {color}%(levelname)s{self.RESET} "
-            f"in {self.COLOR_MODULE}%(module)s [%(filename)s:%(lineno)d - %(funcName)s()]{self.RESET}: "
+            f"in {self.COLOR_MODULE}%(module)s [%(filename)s: %(lineno)d - %(funcName)s()]{self.RESET}: "
             f"{color}%(message)s{self.RESET}"
         )
         formatter = logging.Formatter(log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
@@ -36,7 +36,7 @@ def setup_logging() -> None:
                 "datefmt": "%Y-%m-%d %H:%M:%S"
             },
             "detailed": {
-                "format": "[%(asctime)s] %(levelname)s [%(name)s] [%(filename)s:%(lineno)d] - %(message)s",
+                "format": "[%(asctime)s] %(levelname)s [%(name)s] [%(filename)s: %(lineno)d] - %(message)s",
                 "datefmt": "%Y-%m-%d %H:%M:%S"
             },
         },

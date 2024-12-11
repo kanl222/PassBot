@@ -10,7 +10,7 @@ class AbsenceReason(str, Enum):
     OTHER = "other"
 
 class Absence(SqlAlchemyBase):
-    __tablename__ = 'absences'
+    __tablename__: str = 'absences'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     reason = Column(String, nullable=False)
@@ -20,5 +20,5 @@ class Absence(SqlAlchemyBase):
     student_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     student = relationship('User', back_populates='absences')
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Absence(student={self.student.full_name}, reason={self.reason}, timestamp={self.timestamp})>"

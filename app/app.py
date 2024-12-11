@@ -16,14 +16,14 @@ except ValueError as e:
 from .db import db_session_manager
 from .core.settings import get_db_url
 
-def db_init_models():
+def db_init_models() -> None:
     """
     Initialization of database models.
 
     :raises ValueError: If the database path is not specified in the configuration file.
     :return: None
     """
-    db_path = get_db_url()
+    db_path: str = get_db_url()
 
     if not db_path:
         logging.error("Database path must be specified in the configuration file.")
@@ -35,7 +35,7 @@ def db_init_models():
     asyncio.run(_async_init_models())
 
 
-async def _async_init_models():
+async def _async_init_models() -> None:
     """
     Asynchronous initialization of database models.
 
@@ -47,7 +47,7 @@ async def _async_init_models():
         logging.error(f"Error initializing database models: {e}", exc_info=True)
         raise
 
-def run_bot():
+def run_bot() -> None:
     """
     Launch the bot, ensuring parsing availability first.
 
@@ -55,9 +55,9 @@ def run_bot():
     """
     try:
         if settings.IS_TELEGRAM_BOT_TOKEN:
-            from .bot_telegram import running_bot
+            from .bot.run_bot import running_bot
             logging.info("Bot is starting...")
-            asyncio.run(running_bot())
+            asyncio.get_event_loop().run_until_complete(running_bot())
             logging.info("Bot started successfully. Ready to run tasks.")
         else:
             logging.error('Telegram bot token is missing. Bot will not start.')
