@@ -10,13 +10,13 @@ from sqlalchemy.orm import sessionmaker
 from app.core.settings import IS_POSTGRESQL
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger: logging.Logger = logging.getLogger(__name__)
 
 SqlAlchemyBase = declarative_base()
 from . import __all_models
 
 class DatabaseSessionManager:
-    def __init__(self):
+    def __init__(self) -> None:
         self._session_factory: Optional[sessionmaker] = None
         self._engine: Optional[AsyncEngine] = None
 

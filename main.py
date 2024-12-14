@@ -6,7 +6,7 @@ cli = typer.Typer(no_args_is_help=True)
 
 
 @cli.command(help="Create configuration files")
-def create_configs():
+def create_configs() -> None:
     """
     Command to generate config files for the application.
     """
@@ -23,7 +23,7 @@ def create_configs():
 
 
 @cli.command(help="Initialize database models")
-def init_db_models():
+def init_db_models() -> None:
     """
     Command to initialize the database models.
     """
@@ -37,7 +37,7 @@ def init_db_models():
 
 
 @cli.command(help="Run the bot")
-def run_bot():
+def run_bot() -> None:
     """
     Command to run the bot.
     """
