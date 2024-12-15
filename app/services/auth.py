@@ -1,0 +1,151 @@
+from ..session.session_manager import get_user_session, is_teacher
+from ..parsers.urls import link_to_login
+import logging
+from ..parsers.teacher_parser import parse_teacher
+from ..parsers.student_parser import parse_student
+from ..db.db_session import with_session
+from app.db.models.users import User, UserRole, Teacher
+from app.db.models.groups import Group
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.future import select
+
+user_input_data = {
+    'id_user_telegram': 32423423,  # Telegram ID пользователя
+    'password': '324234',  # Пароль в открытом виде
+    'login': 'ekjojrow',  # Логин пользователя
+}
+
+
+@with_session
+async def authenticated_users(user_input_data: dict, db_session) -> dict:
+    """
+    Authenticates the user based on the provided credentials and registers the user.
+
+    Args:
+        user_input_data (dict): A dictionary containing the user's credentials.
+        db_session: The SQLAlchemy session for database operations.
+
+    Returns:
+        dict: The result of the authentication and registration process.
+    """
+    login = user_input_data['login']
+    password = user_input_data['password']
+    telegram_id = user_input_data['id_user_telegram']
+
+    try:
+        existing_user = await db_session.execute(
+            select(User).filter(User.telegram_id == telegram_id)
+        )
+        existing_user = existing_user.scalar()
+
+        if existing_user:
+            logging.info(f"User with Telegram ID {telegram_id} already exists: {existing_user.full_name}.")
+            return {
+                "status": "exists",
+                "user": existing_user.full_name,
+                "role": existing_user.role.value
+            }
+
+        async with await get_user_session(login, password) as sm:
+            if not sm or not sm.status:
+                logging.error(f"Authentication failed for user {login}. Invalid session.")
+                return {
+                    "status": "error",
+                    "message": "Authentication failed",
+                    "details": "Invalid login or password"
+                }
+
+            async with await sm.session.get(link_to_login) as response:
+                if response.status == 200:
+                    logging.info(f"Authentication successful for user: {login}")
+                    user_data = {"full_name": None, "role": None}
+
+                    if await is_teacher(sm.session):
+                        teacher_data = await parse_teacher(response)
+                        user_data.update(teacher_data)
+                        user_data["role"] = UserRole.TEACHER
+
+                        await register_teacher(user_data, login, password, telegram_id, db_session)
+                        return {
+                            "status": "success",
+                            "role": user_data["role"].value,
+                            "user": user_data["full_name"]
+                        }
+
+                    student_data = await parse_student(response)
+                    user_data.update(student_data)
+                    user_data["role"] = UserRole.STUDENT
+
+                    existing_student = await db_session.execute(
+                        select(User).filter(User.full_name == student_data["full_name"], User.role == UserRole.STUDENT)
+                    )
+                    existing_student = existing_student.scalar()
+
+                    if existing_student:
+                        existing_student.telegram_id = telegram_id
+                        await db_session.commit()
+                        logging.info(f"Updated Telegram ID for existing student: {existing_student.full_name}.")
+                        return {
+                            "status": "updated",
+                            "role": existing_student.role.value,
+                            "user": existing_student.full_name
+                        }
+
+                    new_student = User(
+                        full_name=student_data["full_name"],
+                        role=UserRole.STUDENT,
+                        telegram_id=telegram_id
+                    )
+                    db_session.add(new_student)
+                    await db_session.commit()
+
+                    logging.warning(f"Group for student {new_student.full_name} not found.")
+                    return {
+                        "status": "no_group",
+                        "message": "The teacher has not registered a group for this student."
+                    }
+
+
+                else:
+                    error_details = await response.text()
+                    logging.error(f"Authentication failed for user: {login}. Error: {error_details}")
+                    return {
+                        "status": "error",
+                        "message": "Authentication failed",
+                        "details": error_details
+                    }
+
+    except IntegrityError as e:
+        await db_session.rollback()
+        logging.error(f"Database integrity error: {e}")
+        return {"status": "error", "message": "Database error"}
+    except Exception as e:
+        logging.error(f"An error occurred during authentication: {e}", exc_info=True)
+        return {"status": "error", "message": str(e)}
+
+
+@with_session
+async def register_teacher(teacher_data: dict, login: str, password: str, telegram_id: int, db_session) -> None:
+    """
+    Registers a teacher in the system.
+
+    Args:
+        teacher_data (dict): Teacher data.
+        login (str): Teacher login.
+        password (str): Teacher password.
+        telegram_id (int): Telegram ID of the teacher.
+        db_session: SQLAlchemy session for database operations.
+
+    Returns:
+        None
+    """
+    teacher = Teacher(
+        full_name=teacher_data["full_name"],
+        telegram_id=telegram_id,
+        _login=login,
+        _encrypted_password=password
+    )
+
+    db_session.add(teacher)
+    await db_session.commit()
+    logging.info(f"Teacher {teacher.full_name} is registered.")

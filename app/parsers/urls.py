@@ -31,7 +31,7 @@ link_to_activity = (
 )
 
 # List of exported URLs
-__all__ = [
+__all__: list[str] = [
     # Student URLs
     "link_to_supervision",
     "link_to_login",

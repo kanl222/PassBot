@@ -3,3 +3,8 @@
 .env
 *.pyc
 .venv
+/Testdata/*
+.vscode
+.idea
+TestData/3.py
+*.7z

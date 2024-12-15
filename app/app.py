@@ -16,8 +16,19 @@ except Exception as e:
     logging.error(f'{e}')
     raise
 
-from .db import db_session_manager
 from .core.settings import get_db_url
+from .db import db_session_manager
+try:
+    db_path: str = get_db_url()
+
+    if not db_path:
+        logging.error("Database path must be specified in the configuration file.")
+
+    logging.info(f"Initializing database with path: {db_path}")
+    db_session_manager.initialize(db_path)
+except Exception as e:
+    print(e)
+
 
 def db_init_models() -> None:
     """
@@ -26,15 +37,6 @@ def db_init_models() -> None:
     :raises ValueError: If the database path is not specified in the configuration file.
     :return: None
     """
-    db_path: str = get_db_url()
-
-    if not db_path:
-        logging.error("Database path must be specified in the configuration file.")
-        raise
-
-    logging.info(f"Initializing database with path: {db_path}")
-    db_session_manager.initialize(db_path)
-
     asyncio.run(_async_init_models())
 
 

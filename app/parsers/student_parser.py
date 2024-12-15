@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 from aiohttp import ClientResponse
 from urllib.parse import urlparse, parse_qs
-from ...db.models.users import Student, UserRole
+from app.db.models.users import Student, UserRole
 import logging
 
 async def parse_students_list(response: ClientResponse) -> list[dict]:
@@ -59,7 +59,7 @@ async def parse_student(response: ClientResponse) -> dict:
         if not table_info:
             raise ValueError("Не найден блок с информацией о студенте.")
 
-        name_tag = table_info.find("p").find("b")
+        name_tag = table_info.find_all("p")[1].find("b")
         if not name_tag:
             raise ValueError("Не найден элемент с именем студента. Проверьте HTML.")
 

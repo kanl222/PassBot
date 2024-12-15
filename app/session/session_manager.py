@@ -1,15 +1,16 @@
+from typing import Self
 import aiohttp
 import asyncio
 import logging
 from aiohttp import ClientSession, BasicAuth
-from bs4 import BeautifulSoup
-from ..parsers.urls import link_to_activity, link_to_personal, link_to_login,BASE_PREPOD_URL
+from bs4 import BeautifulSoup, NavigableString, Tag
+from ..parsers.urls import link_teacher_supervision, link_to_activity, link_to_personal, link_to_login,BASE_PREPOD_URL
 
 logging.basicConfig(level=logging.INFO)
 
 
 class SessionManager:
-    def __init__(self, login: str, password: str):
+    def __init__(self, login: str, password: str) -> None:
         """
         Manages a session for a user.
 
@@ -19,14 +20,15 @@ class SessionManager:
         self.login_url = link_to_login
         self.session: ClientSession = None
         self.auth = BasicAuth(login, password)
-        self.payload = {"login": login, "pwd": password}
+        self.status = False
+        self.payload: dict[str, str] = {"login": login, "pwd": password}
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         """Async context manager entry for session management."""
         self.session = ClientSession(auth=self.auth)
         return self
 
-    async def __aexit__(self, exc_type, exc_value, traceback):
+    async def __aexit__(self, exc_type, exc_value, traceback) -> None:
         """Async context manager exit to close the session."""
         if self.session:
             await self.session.close()
@@ -34,10 +36,10 @@ class SessionManager:
     async def is_authenticated(self) -> bool:
         """Check if the session is still valid by accessing a protected endpoint."""
         try:
-            async with self.session.get(link_to_personal) as response:
+            async with self.session.post(self.login_url, data=self.payload) as response:
                 document = BeautifulSoup(await response.text(), features='lxml')
-                error_spans = document.find_all('span', class_='error')
-                if error_spans and 'неверное сочетание логина и пароля' in error_spans[0].text:
+                error_div: Tag | NavigableString | None = document.find(id="error_msg")
+                if error_div and "Неверный логин-пароль" in error_div.get_text():
                     logging.warning("Session expired or invalid credentials.")
                     return False
                 return True
@@ -48,12 +50,12 @@ class SessionManager:
     async def login(self) -> bool:
         """Authenticate the session by logging in to the server."""
         try:
-            async with self.session.post(self.login_url, data=self.payload) as response:
-                if response.status == 200 and await self.is_authenticated():
+                if await self.is_authenticated():
                     logging.info("Login successful.")
+                    self.status = True
                     return True
                 else:
-                    logging.error(f"Login failed with status {response.status}: {await response.text()}")
+                    logging.error(f"Login failed with status")
                     return False
         except aiohttp.ClientError as e:
             logging.error(f"Login failed due to client error: {e}")
@@ -105,7 +107,7 @@ async def get_user_session(login: str, password: str) -> SessionManager:
             return sm
         else:
             logging.error(f"Failed to create session for user: {login}")
-            return None
+            return sm
 
 
 
@@ -117,15 +119,14 @@ async def is_teacher(session: ClientSession) -> bool:
     :return: True if the user is a teacher, otherwise False.
     """
     try:
-        async with session.get(BASE_PREPOD_URL) as response:
+        async with (await session.get(link_teacher_supervision)) as response:
             if response.status != 200:
-                logging.error(f"Error accessing {BASE_PREPOD_URL}: {response.status}")
+                logging.error(f"Error accessing {link_teacher_supervision}: {response.status}")
                 return False
             soup = BeautifulSoup(await response.text(), 'lxml')
 
-            error_span = soup.find('span', class_='error')
-            if error_span and "Нет доступа к Личному кабинету преподавателя!" in error_span.text:
-                logging.info("The user is not a teacher.")
+            error_span: Tag | NavigableString | None = soup.find('span', class_='')
+            if 'Введите' == error_span.text.split()[0] and error_span:
                 return False
             logging.info("The user is a teacher.")
             return True
@@ -135,19 +136,19 @@ async def is_teacher(session: ClientSession) -> bool:
         return False
 
 
-async def main():
+async def main() -> None:
     """Example of using the function to get a session."""
     user_login = "example_login"
     user_password = "example_password"
 
-    session_manager = await get_user_session(user_login, user_password)
+    session_manager: SessionManager = await get_user_session(user_login, user_password)
 
     if session_manager:
         test_url = "https://www.osu.ru/iss/lks/?page=progress"
-        response = await session_manager.get(test_url)
+        response: aiohttp.ClientResponse = await session_manager.get(test_url)
         if response:
             logging.info("Data fetched successfully.")
-            text = await response.text()
+            text: str = await response.text()
             print(text)
         else:
             logging.error("Failed to fetch data.")

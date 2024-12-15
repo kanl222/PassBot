@@ -10,8 +10,9 @@ class UserRole(str, PyEnum):
     TEACHER = "teacher"
 
 
+
 class User(SqlAlchemyBase):
-    __tablename__: str = 'users'
+    __tablename__ = 'users'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     telegram_id = Column(String(50), unique=True, nullable=False)
@@ -23,11 +24,11 @@ class User(SqlAlchemyBase):
         """
         Sets encrypted user data.
 
-        :param user_data: Dictionary with user data (e.g. username and password).
+        :param user_data: Dictionary with user data (e.g., username and password).
         """
         try:
-            encoded: bytes | None = encode_data(dict_to_str(user_data))
-            self._encrypted_data_user: bytes | None = encoded
+            encoded = encode_data(dict_to_str(user_data))
+            self._encrypted_data_user = encoded
         except Exception as e:
             raise ValueError(f"Data encryption error: {e}")
 
@@ -40,7 +41,7 @@ class User(SqlAlchemyBase):
         if not self._encrypted_data_user:
             raise ValueError("There is no encrypted data for this user.")
         try:
-            decoded: str | None = decode_data(self._encrypted_data_user)
+            decoded = decode_data(self._encrypted_data_user)
             return str_to_dict(decoded)
         except Exception as e:
             raise ValueError(f"Error decrypting data: {e}")
@@ -57,17 +58,21 @@ class Student(User):
     id_stud = Column(Integer, nullable=True)
     group_id = Column(Integer, ForeignKey('groups.id'), nullable=True)
 
-    group = relationship('Group', back_populates='students')
-    absences = relationship('Absence', back_populates='student')
+    # Relationships
+    group = relationship("Group", back_populates="students", foreign_keys=[group_id])
+    absences = relationship("Absence", back_populates="student")
 
     def __repr__(self) -> str:
         return f"<Student(id={self.id}, full_name={self.full_name}, group_id={self.group_id})>"
 
 
 class Teacher(User):
-    __tablename__: str = 'teachers'
+    __tablename__ = 'teachers'
 
     id = Column(Integer, ForeignKey('users.id'), primary_key=True)
 
     def __repr__(self) -> str:
         return f"<Teacher(id={self.id}, full_name={self.full_name})>"
+
+from .groups import Group
+User.curated_groups = relationship("Group", back_populates="curator", foreign_keys=[Group.id_curator])

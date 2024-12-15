@@ -1,6 +1,7 @@
+from ast import For
 import contextlib
 import logging
-from typing import AsyncIterator, Optional, Callable
+from typing import Any, AsyncIterator, Optional, Callable
 from functools import wraps
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
@@ -8,6 +9,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.core.settings import IS_POSTGRESQL
+from contextlib import asynccontextmanager
 
 logging.basicConfig(level=logging.INFO)
 logger: logging.Logger = logging.getLogger(__name__)
@@ -104,7 +106,7 @@ class DatabaseSessionManager:
             finally:
                 await session.close()
 
-    def get_base(self) -> SqlAlchemyBase:
+    def get_base(self) -> SqlAlchemyBase: # type: ignore
         """
         Return the declarative base for model definitions.
         """
@@ -125,7 +127,7 @@ class DatabaseSessionManager:
 
 db_session_manager = DatabaseSessionManager()
 
-
+@asynccontextmanager
 async def get_session() -> AsyncIterator[AsyncSession]:
     """
     A generator that provides an asynchronous session to be used in database operations.
@@ -141,9 +143,11 @@ def with_session(func: Callable):
 
     :param func: The function to be wrapped.
     """
+
     @wraps(func)
-    async def wrapper(*args, **kwargs):
+    async def wrapper(*args, **kwargs) -> Any:
         async with get_session() as session:
             kwargs['db_session'] = session
             return await func(*args, **kwargs)
+
     return wrapper

@@ -1,7 +1,7 @@
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString, Tag
 from aiohttp import ClientResponse
 from urllib.parse import urlparse, parse_qs
-from ...db.models.users import Student, UserRole
+from app.db.models.users import Student, UserRole
 import logging
 
 async def parse_students_list(response: ClientResponse) -> list[dict]:
@@ -13,7 +13,7 @@ async def parse_students_list(response: ClientResponse) -> list[dict]:
     """
     try:
         soup = BeautifulSoup(await response.text(), 'lxml')
-        table = soup.find('table', {"class": "table-visits"})
+        table: Tag | NavigableString | None = soup.find('table', {"class": "table-visits"})
         rows = table.find_all('tr')
         students = []
 
