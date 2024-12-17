@@ -11,9 +11,8 @@ async def parse_teacher(response: ClientResponse) -> dict:
     :return: A dictionary representing the parsed teacher.
     """
     try:
-        # Парсинг HTML страницы
         soup = BeautifulSoup(await response.text(), 'lxml')
-        name_tag = soup.find("div", id="title_info").find("p").find("b")
+        name_tag = soup.find("div", id="title_info").find_all("p")[1].find("b")
         if not name_tag:
             raise ValueError("Unable to find element with teacher name. Please check your HTML.")
 

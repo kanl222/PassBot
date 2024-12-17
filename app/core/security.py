@@ -2,18 +2,18 @@ import json
 import logging
 import os
 from secrets import token_hex
-from typing import Optional
-from .settings import ENV_FILE_PATH
+from typing import Optional, Union
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers import algorithms, Cipher, modes
 from cryptography.hazmat.primitives.padding import PaddingContext
+from .settings import ENV_FILE_PATH
 
-SECRET_KEY = None
+SECRET_KEY:str = None
 
 class SettingsCrypto:
     def __init__(self):
-        self.SECRET_KEY: str = os.getenv('SECRET_KEY')
+        self.SECRET_KEY: Optional[str] = os.getenv('SECRET_KEY')
 
         if not self.SECRET_KEY:
             logging.warning("SECRET_KEY not found in environment. Generating new key.")
@@ -21,11 +21,11 @@ class SettingsCrypto:
 
     def generate_new_secret_key(self) -> str:
         """Generate a new 64-character secret key composed of letters and digits."""
-        return token_hex(64)
+        return token_hex(32)  # AES-256 requires a 32-byte key
 
     def update_secret_key(self) -> None:
         """Update the secret key in the current settings, save it to .env, and log the event."""
-        self.SECRET_KEY: str = self.generate_new_secret_key()
+        self.SECRET_KEY = self.generate_new_secret_key()
         self.save_secret_key_to_env()
         logging.info("Secret key updated successfully.")
 
@@ -36,14 +36,12 @@ class SettingsCrypto:
             if ENV_FILE_PATH.exists():
                 with open(ENV_FILE_PATH, "r") as env_file:
                     lines = env_file.readlines()
-            print(lines)
+
             updated = False
             for i, line in enumerate(lines):
                 if line.startswith("SECRET_KEY="):
                     lines[i] = f"SECRET_KEY={self.SECRET_KEY}\n"
                     updated = True
-                else:
-                    lines[i] = line
 
             if not updated:
                 lines.append(f"SECRET_KEY={self.SECRET_KEY}\n")
@@ -71,7 +69,7 @@ def unpad_data(data: bytes) -> bytes:
 
 try:
     settings_crypto = SettingsCrypto()
-    SECRET_KEY: str = settings_crypto.SECRET_KEY
+    SECRET_KEY = bytes.fromhex(settings_crypto.SECRET_KEY)  # Convert the hex key to bytes
     logging.info("SettingsCrypto initialized successfully.")
 except Exception as e:
     logging.error("Error initializing SettingsCrypto", exc_info=True)
@@ -88,7 +86,7 @@ def encode_data(data: str) -> Optional[bytes]:
         encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
         return iv + encrypted_data
     except Exception as e:
-        logging.error(f"Unexpected error during AES encryption", exc_info=True)
+        logging.error("Error during AES encryption", exc_info=True)
         return None
 
 
@@ -103,23 +101,58 @@ def decode_data(encrypted_data: bytes) -> Optional[str]:
         decrypted_data = unpad_data(decrypted_padded_data)
         return decrypted_data.decode('utf-8')
     except Exception as e:
-        logging.error("Unexpected error during AES decryption", exc_info=True)
+        logging.error("Error during AES decryption", exc_info=True)
         return None
 
 
-
 def dict_to_str(data: Optional[dict]) -> Optional[str]:
-    """Converts a dictionary to a JSON string or returns None."""
+    """Convert a dictionary to a JSON string or return None."""
     if data is None:
         return None
     return json.dumps(data)
 
+
 def str_to_dict(data: Optional[str]) -> Optional[dict]:
-    """Converts a JSON string back to a dictionary or returns None."""
+    """Convert a JSON string back to a dictionary or return None."""
     if data is None:
         return None
     try:
-        return json.loads(data)[0]
+        return json.loads(data)
     except json.JSONDecodeError:
         raise ValueError("Invalid format: Ensure the string is valid JSON.")
 
+
+def encode_dict(data: dict) -> Optional[bytes]:
+    """
+    Encrypt a dictionary using AES encryption.
+
+    :param data (dict): The dictionary to encrypt.
+
+    :returns bytes: The encrypted data as a byte string, or None if an error occurred.
+    """
+    try:
+        json_data = dict_to_str(data)
+        if json_data is None:
+            raise ValueError("Empty dictionary cannot be encoded.")
+        return encode_data(json_data)
+    except Exception as e:
+        logging.error(f"Error encoding dictionary: {e}")
+        return None
+
+
+def decode_dict(encrypted_data: bytes) -> Optional[dict]:
+    """
+    Decrypt an AES-encrypted dictionary.
+
+    :param encrypted_data (bytes): The encrypted data to decrypt.
+
+    :return dict: The decrypted dictionary, or None if an error occurred.
+    """
+    try:
+        json_data = decode_data(encrypted_data)
+        if json_data is None:
+            raise ValueError("Decryption failed or data is None.")
+        return str_to_dict(json_data)
+    except Exception as e:
+        logging.error(f"Error decoding dictionary: {e}")
+        return None
