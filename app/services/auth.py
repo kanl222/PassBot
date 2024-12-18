@@ -1,4 +1,5 @@
-from ..session.session_manager import get_user_session, is_teacher
+from typing import Any
+from ..session.session_manager import is_teacher,SessionManager
 from ..parsers.urls import link_to_login
 import logging
 from ..parsers.teacher_parser import parse_teacher
@@ -33,20 +34,7 @@ async def authenticated_users(user_input_data: dict, db_session) -> dict:
     telegram_id = user_input_data['id_user_telegram']
 
     try:
-        existing_user = await db_session.execute(
-            select(User).filter(User.telegram_id == telegram_id)
-        )
-        existing_user = existing_user.scalar()
-
-        if existing_user:
-            logging.info(f"User with Telegram ID {telegram_id} already exists: {existing_user.full_name}.")
-            return {
-                "status": "exists",
-                "user": existing_user.full_name,
-                "role": existing_user.role.value
-            }
-
-        async with await get_user_session(login, password) as sm:
+        async with SessionManager(login, password) as sm:
             if not sm or not sm.status:
                 logging.error(f"Authentication failed for user {login}. Invalid session.")
                 return {
@@ -149,3 +137,45 @@ async def register_teacher(teacher_data: dict, login: str, password: str, telegr
     db_session.add(teacher)
     await db_session.commit()
     logging.info(f"Teacher {teacher.full_name} is registered.")
+
+@with_session
+async def check_user_in_db(telegram_id,db_session) -> dict[str, Any]:
+    """
+    Check if a user exists in the database by their Telegram ID.
+
+    Args:
+        db_session: SQLAlchemy Async Session to interact with the database.
+        telegram_id: Telegram ID of the user to check.
+
+    Returns:
+        dict: Information about the user's existence status, full name, and role.
+    """
+    try:
+        # Query the database for a user with the given Telegram ID
+        result = await db_session.execute(
+            select(User).filter(User.telegram_id == telegram_id)
+        )
+        existing_user = result.scalar()
+
+        if existing_user:
+            logging.info(f"User with Telegram ID {telegram_id} already exists: {existing_user.full_name}.")
+            return {
+                "status": "exists",
+                "user": existing_user.full_name,
+                "role": existing_user.role.value
+            }
+        else:
+            logging.info(f"No user found with Telegram ID {telegram_id}.")
+            return {
+                "status": "not_found",
+                "user": None,
+                "role": None
+            }
+    except Exception as e:
+        logging.error(f"An error occurred while checking user in database: {e}")
+        return {
+            "status": "error",
+            "user": None,
+            "role": None,
+            "error_message": str(e)
+        }

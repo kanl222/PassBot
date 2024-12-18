@@ -13,14 +13,13 @@ storage: SQLStorage = SQLStorage('BotStorage.db', serializing_method='pickle')
 
 token: str = settings.TELEGRAM_BOT_TOKEN
 dp: Dispatcher = Dispatcher(storage=storage)
+bot: Bot = Bot(token=token)
 
-
-async def init_bot() -> Bot:
+async def info_bot() -> Bot:
     """
     Initialize the bot, fetch its information, and display it in the logs.
     """
-    _bot: Bot = Bot(token=token)
-    bot_info: User = await _bot.get_me()
+    bot_info: User = asyncio.get_event_loop().run_until_complete(bot.get_me())
     logging.info(
         f"\n{COLORS['INFO']}Bot successfully launched!\n"
         f"{COLORS['DEBUG']}Bot Name: {bot_info.full_name}\n"
@@ -28,9 +27,8 @@ async def init_bot() -> Bot:
         f"Bot ID: {bot_info.id}\n"
     )
 
-    return _bot
 
+info_bot()
 
-bot: Bot = asyncio.get_event_loop().run_until_complete(init_bot())
 dp.include_router(__all_routes)
 __all__: list[str] = ['dp', 'bot']

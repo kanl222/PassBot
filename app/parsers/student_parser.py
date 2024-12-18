@@ -54,6 +54,7 @@ async def parse_student(response: ClientResponse) -> dict:
     """
     try:
         soup = BeautifulSoup(await response.text(), 'lxml')
+        print(soup)
         table_info = soup.find("div", id="title_info")
 
         if not table_info:

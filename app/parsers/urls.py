@@ -6,7 +6,7 @@ Module with URL templates for accessing various resources on the platform.
 BASE_PREPOD_URL = "https://www.osu.ru/iss/prepod/lk.php"
 BASE_STUDENT_URL = "https://www.osu.ru/iss/lks/"
 BASE_URL = "https://www.osu.ru/iss/1win/"
-
+LOGOUT_URL = f'{BASE_URL}?page=logout'
 # Specific page URLs for students
 link_to_login = BASE_URL  # Login page
 link_to_progress = f"{BASE_STUDENT_URL}?page=progress"  # Student progress page
