@@ -2,6 +2,7 @@ from typing import Any
 from ..session.session_manager import is_teacher,SessionManager
 from ..parsers.urls import link_to_login
 import logging
+from ..core.security import encode_dict
 from ..parsers.teacher_parser import parse_teacher
 from ..parsers.student_parser import parse_student
 from ..db.db_session import with_session
@@ -9,13 +10,6 @@ from app.db.models.users import User, UserRole, Teacher
 from app.db.models.groups import Group
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
-
-user_input_data = {
-    'id_user_telegram': 32423423,  # Telegram ID пользователя
-    'password': '324234',  # Пароль в открытом виде
-    'login': 'ekjojrow',  # Логин пользователя
-}
-
 
 @with_session
 async def authenticated_users(user_input_data: dict, db_session) -> dict:
@@ -127,12 +121,15 @@ async def register_teacher(teacher_data: dict, login: str, password: str, telegr
     Returns:
         None
     """
-    teacher = Teacher(
-        full_name=teacher_data["full_name"],
-        telegram_id=telegram_id,
-        _login=login,
-        _encrypted_password=password
-    )
+    try:
+        teacher = Teacher(
+            full_name=teacher_data["full_name"],
+            telegram_id=telegram_id,
+            _encrypted_data_user=await encode_dict({
+            'login': login,
+            'password': password
+        })
+        )
 
     db_session.add(teacher)
     await db_session.commit()

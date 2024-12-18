@@ -60,7 +60,7 @@ async def handle_login(message: types.Message, state: FSMContext) -> None:
         return
 
     await state.update_data(login=login)
-    await message.answer("Отлично! Теперь введите ваш пароль:")
+    await message.answer("Отлично! Теперь введите свой пароль:")
     await state.set_state(AuthStates.awaiting_password)
 
 @common_router.message(AuthStates.awaiting_password)
