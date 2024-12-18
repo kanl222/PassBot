@@ -19,7 +19,7 @@ class SessionManager:
         """
         self.login_url = link_to_login
         self.logout_url = LOGOUT_URL
-        self.session: Opti onal[ClientSession] = None
+        self.session: Optional[ClientSession] = None
         self.auth = BasicAuth(login, password)
         self.status = False
         self.payload: dict[str, str] = {"login": login, "pwd": password}

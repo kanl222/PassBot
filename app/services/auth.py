@@ -121,15 +121,12 @@ async def register_teacher(teacher_data: dict, login: str, password: str, telegr
     Returns:
         None
     """
-    try:
-        teacher = Teacher(
-            full_name=teacher_data["full_name"],
-            telegram_id=telegram_id,
-            _encrypted_data_user=await encode_dict({
-            'login': login,
-            'password': password
-        })
-        )
+    teacher = Teacher(
+        full_name=teacher_data["full_name"],
+        telegram_id=telegram_id,
+        _login=login,
+        _encrypted_password=password
+    )
 
     db_session.add(teacher)
     await db_session.commit()
