@@ -1,6 +1,7 @@
+from typing import Dict
 from sqlalchemy import Column, Integer, String, ForeignKey, Enum, Table
 from sqlalchemy.orm import relationship
-from app.core.security import dict_to_str, encode_data, decode_data, str_to_dict
+from app.core.security import crypto
 from ..db_session import SqlAlchemyBase
 from enum import Enum as PyEnum
 
@@ -20,15 +21,15 @@ class User(SqlAlchemyBase):
     role = Column(Enum(UserRole), nullable=False)
     _encrypted_data_user = Column(String(500), nullable=True)
 
-    def set_encrypted_data(self, user_data: dict[str, str]):
+    def set_encrypted_data(self, user_data: dict[str, str]) -> None:
         """
         Sets encrypted user data.
 
         :param user_data: Dictionary with user data (e.g., username and password).
         """
         try:
-            encoded = encode_data(dict_to_str(user_data))
-            self._encrypted_data_user = encoded
+            encoded: bytes | None = crypto.encrypt(user_data)
+            self._encrypted_data_user: bytes | None = encoded
         except Exception as e:
             raise ValueError(f"Data encryption error: {e}")
 
@@ -41,8 +42,8 @@ class User(SqlAlchemyBase):
         if not self._encrypted_data_user:
             raise ValueError("There is no encrypted data for this user.")
         try:
-            decoded = decode_data(self._encrypted_data_user)
-            return str_to_dict(decoded)
+            decoded: Dict[str, Any] | None = crypto.decrypt(self._encrypted_data_user)
+            return decoded
         except Exception as e:
             raise ValueError(f"Error decrypting data: {e}")
 
@@ -58,16 +59,15 @@ class Student(User):
     id_stud = Column(Integer, nullable=True)
     group_id = Column(Integer, ForeignKey('groups.id'), nullable=True)
 
-    # Relationships
     group = relationship("Group", back_populates="students", foreign_keys=[group_id])
-    absences = relationship("Absence", back_populates="student")
+    # absences = relationship("Absence", back_populates="student")
 
     def __repr__(self) -> str:
         return f"<Student(id={self.id}, full_name={self.full_name}, group_id={self.group_id})>"
 
 
 class Teacher(User):
-    __tablename__ = 'teachers'
+    __tablename__: str = 'teachers'
 
     id = Column(Integer, ForeignKey('users.id'), primary_key=True)
 

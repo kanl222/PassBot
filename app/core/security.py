@@ -1,158 +1,95 @@
 import json
 import logging
 import os
+from dataclasses import dataclass
 from secrets import token_hex
-from typing import Optional, Union
+from typing import Optional, Dict, Any
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
-from cryptography.hazmat.primitives.ciphers import algorithms, Cipher, modes
-from cryptography.hazmat.primitives.padding import PaddingContext
+from cryptography.hazmat.primitives.ciphers.base import CipherContext
 from .settings import ENV_FILE_PATH
+@dataclass
+class CryptoConfig:
+    key_length: int = 16 
+    block_size: int = 16
 
-SECRET_KEY:str = None
+class SecretKeyManager:
+    def __init__(self, env_file_path) -> None:
+        self.env_file_path = env_file_path
+        self.secret_key = self._load_or_generate_key()
 
-class SettingsCrypto:
-    def __init__(self):
-        self.SECRET_KEY: Optional[str] = os.getenv('SECRET_KEY')
+    def _load_or_generate_key(self) -> str:
+        """Load existing secret key or generate a new one."""
+        key: str | None = os.getenv('SECRET_KEY')
+        if not key:
+            key = self._generate_secret_key()
+            self._save_secret_key(key)
+        return key
 
-        if not self.SECRET_KEY:
-            logging.warning("SECRET_KEY not found in environment. Generating new key.")
-            self.update_secret_key()
+    def _generate_secret_key(self) -> str:
+        """Generate a new cryptographically secure secret key."""
+        return token_hex(CryptoConfig.key_length)
 
-    def generate_new_secret_key(self) -> str:
-        """Generate a new 64-character secret key composed of letters and digits."""
-        return token_hex(32)  # AES-256 requires a 32-byte key
-
-    def update_secret_key(self) -> None:
-        """Update the secret key in the current settings, save it to .env, and log the event."""
-        self.SECRET_KEY = self.generate_new_secret_key()
-        self.save_secret_key_to_env()
-        logging.info("Secret key updated successfully.")
-
-    def save_secret_key_to_env(self) -> None:
-        """Write the updated SECRET_KEY to the .env file."""
+    def _save_secret_key(self, key: str) -> None:
+        """Save the secret key to the environment file."""
         try:
-            lines: list = []
-            if ENV_FILE_PATH.exists():
-                with open(ENV_FILE_PATH, "r") as env_file:
-                    lines = env_file.readlines()
-
-            updated = False
-            for i, line in enumerate(lines):
-                if line.startswith("SECRET_KEY="):
-                    lines[i] = f"SECRET_KEY={self.SECRET_KEY}\n"
-                    updated = True
-
-            if not updated:
-                lines.append(f"SECRET_KEY={self.SECRET_KEY}\n")
-
-            with open(ENV_FILE_PATH, "w") as env_file:
-                env_file.writelines(lines)
-
-            logging.info(f"New secret key saved to .env file at: {ENV_FILE_PATH}")
+            with open(self.env_file_path, 'a+') as env_file:
+                env_file.write(f"\nSECRET_KEY={key}")
+            logging.info("New secret key saved to environment.")
         except Exception as e:
-            logging.error("Failed to update .env with new SECRET_KEY", exc_info=True)
+            logging.error(f"Failed to save secret key: {e}")
             raise
 
+class DataCrypto:
+    def __init__(self, secret_key: str) -> None:
+        self.key: bytes = bytes.fromhex(secret_key)
+        self.config = CryptoConfig()
 
-def pad_data(data: bytes) -> bytes:
-    """Pad data to be a multiple of 16 bytes for AES encryption."""
-    padder: PaddingContext = padding.PKCS7(algorithms.AES.block_size).padder()
-    return padder.update(data) + padder.finalize()
+    def encrypt(self, data: Dict[str, Any]) -> Optional[bytes]:
+        """Encrypt a dictionary to bytes."""
+        try:
+            json_data: str = json.dumps(data)
+            iv: bytes = os.urandom(self.config.block_size)
+            padder: padding.PaddingContext = padding.PKCS7(algorithms.AES.block_size).padder()
+            
+            padded_data: bytes = padder.update(json_data.encode()) + padder.finalize()
+            cipher = Cipher(algorithms.AES(self.key), modes.CBC(iv), backend=default_backend())
+            
+            encryptor: CipherContext = cipher.encryptor()
+            encrypted_data: bytes = encryptor.update(padded_data) + encryptor.finalize()
+            
+            return iv + encrypted_data
+        except Exception as e:
+            logging.error(f"Encryption error: {e}")
+            return None
 
+    def decrypt(self, encrypted_data: bytes) -> Optional[Dict[str, Any]]:
+        """Decrypt bytes to a dictionary."""
+        try:
+            iv: bytes = encrypted_data[:self.config.block_size]
+            ciphertext: bytes = encrypted_data[self.config.block_size:]
+            
+            cipher = Cipher(algorithms.AES(self.key), modes.CBC(iv), backend=default_backend())
+            decryptor: CipherContext = cipher.decryptor()
+            
+            decrypted_padded: bytes = decryptor.update(ciphertext) + decryptor.finalize()
+            unpadder: padding.PaddingContext = padding.PKCS7(algorithms.AES.block_size).unpadder()
+            
+            decrypted_data: bytes = unpadder.update(decrypted_padded) + unpadder.finalize()
+            return json.loads(decrypted_data.decode())
+        except Exception as e:
+            logging.error(f"Decryption error: {e}")
+            return None
 
-def unpad_data(data: bytes) -> bytes:
-    """Remove padding from data after AES decryption."""
-    unpadder: PaddingContext = padding.PKCS7(algorithms.AES.block_size).unpadder()
-    return unpadder.update(data) + unpadder.finalize()
-
-
+# Usage
 try:
-    settings_crypto = SettingsCrypto()
-    SECRET_KEY = bytes.fromhex(settings_crypto.SECRET_KEY)  # Convert the hex key to bytes
-    logging.info("SettingsCrypto initialized successfully.")
+    secret_key_manager = SecretKeyManager(ENV_FILE_PATH)
+    crypto = DataCrypto(secret_key_manager.secret_key)
+    
+    data: Dict[str, str] = {"sensitive": "information"}
+    encrypted: bytes | None = crypto.encrypt(data)
+    decrypted: Dict[str, Any] | None = crypto.decrypt(encrypted)
 except Exception as e:
-    logging.error("Error initializing SettingsCrypto", exc_info=True)
+    logging.error(f"Crypto initialization error: {e}")
     raise
-
-
-def encode_data(data: str) -> Optional[bytes]:
-    """Encrypt a string using AES encryption."""
-    try:
-        iv = os.urandom(16)
-        cipher = Cipher(algorithms.AES(SECRET_KEY), modes.CBC(iv), backend=default_backend())
-        encryptor = cipher.encryptor()
-        padded_data = pad_data(data.encode('utf-8'))
-        encrypted_data = encryptor.update(padded_data) + encryptor.finalize()
-        return iv + encrypted_data
-    except Exception as e:
-        logging.error("Error during AES encryption", exc_info=True)
-        return None
-
-
-def decode_data(encrypted_data: bytes) -> Optional[str]:
-    """Decrypt an AES-encrypted byte string."""
-    try:
-        iv = encrypted_data[:16]
-        ciphertext = encrypted_data[16:]
-        cipher = Cipher(algorithms.AES(SECRET_KEY), modes.CBC(iv), backend=default_backend())
-        decryptor = cipher.decryptor()
-        decrypted_padded_data = decryptor.update(ciphertext) + decryptor.finalize()
-        decrypted_data = unpad_data(decrypted_padded_data)
-        return decrypted_data.decode('utf-8')
-    except Exception as e:
-        logging.error("Error during AES decryption", exc_info=True)
-        return None
-
-
-def dict_to_str(data: Optional[dict]) -> Optional[str]:
-    """Convert a dictionary to a JSON string or return None."""
-    if data is None:
-        return None
-    return json.dumps(data)
-
-
-def str_to_dict(data: Optional[str]) -> Optional[dict]:
-    """Convert a JSON string back to a dictionary or return None."""
-    if data is None:
-        return None
-    try:
-        return json.loads(data)
-    except json.JSONDecodeError:
-        raise ValueError("Invalid format: Ensure the string is valid JSON.")
-
-
-def encode_dict(data: dict) -> Optional[bytes]:
-    """
-    Encrypt a dictionary using AES encryption.
-
-    :param data (dict): The dictionary to encrypt.
-
-    :returns bytes: The encrypted data as a byte string, or None if an error occurred.
-    """
-    try:
-        json_data = dict_to_str(data)
-        if json_data is None:
-            raise ValueError("Empty dictionary cannot be encoded.")
-        return encode_data(json_data)
-    except Exception as e:
-        logging.error(f"Error encoding dictionary: {e}")
-        return None
-
-
-def decode_dict(encrypted_data: bytes) -> Optional[dict]:
-    """
-    Decrypt an AES-encrypted dictionary.
-
-    :param encrypted_data (bytes): The encrypted data to decrypt.
-
-    :return dict: The decrypted dictionary, or None if an error occurred.
-    """
-    try:
-        json_data = decode_data(encrypted_data)
-        if json_data is None:
-            raise ValueError("Decryption failed or data is None.")
-        return str_to_dict(json_data)
-    except Exception as e:
-        logging.error(f"Error decoding dictionary: {e}")
-        return None

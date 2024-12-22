@@ -10,7 +10,6 @@ LOGOUT_URL = f'{BASE_URL}?page=logout'
 # Specific page URLs for students
 link_to_login = BASE_URL  # Login page
 link_to_progress = f"{BASE_STUDENT_URL}?page=progress"  # Student progress page
-link_to_supervision = f"{BASE_STUDENT_URL}?page=supervision"  # Supervision page
 link_to_profile = f"{BASE_STUDENT_URL}?page=profile"  # Profile page
 link_to_personal = f"{BASE_STUDENT_URL}?page=personal"  # Personal info page
 link_to_unlogin = f"{BASE_STUDENT_URL}?page=logout"  # Logout page
@@ -33,7 +32,6 @@ link_to_activity = (
 # List of exported URLs
 __all__: list[str] = [
     # Student URLs
-    "link_to_supervision",
     "link_to_login",
     "link_to_profile",
     "link_to_personal",

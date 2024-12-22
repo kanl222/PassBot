@@ -1,16 +1,10 @@
 import logging
-import os
 from pathlib import Path
-from typing import Optional
-ENV_FILE_PATH: Path = Path(os.path.dirname(os.path.abspath(__file__))) / ".." / ".env"
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
+from typing import Optional, Dict
+from contextlib import suppress
 
 def create_config_files() -> None:
-    """
-    Create configuration files for crypto and database settings.
-    """
+    """Create configuration files with minimal overhead."""
     try:
         create_env()
         logging.info("Configuration files created successfully.")
@@ -18,57 +12,59 @@ def create_config_files() -> None:
         logging.error(f"Error creating configuration files: {e}", exc_info=True)
         raise
 
-
-def create_config_file(filename: str, config_data: dict) -> None:
+def create_config_file(filepath: Path, config_data: Dict[str, str]) -> None:
     """
-    Create or overwrite a configuration file with the provided settings.
-
+    Efficiently create or overwrite a configuration file.
+    
     Args:
-        filename (str): The name of the config file.
-        config_data (dict): A dictionary containing config key-value pairs.
+        filepath (Path): Path to the configuration file.
+        config_data (Dict[str, str]): Configuration key-value pairs.
     """
-    try:
-        dir_name = os.path.dirname(filename)
-        if dir_name:
-            os.makedirs(dir_name, exist_ok=True)
+    # Ensure directory exists
+    with suppress(FileExistsError):
+        filepath.parent.mkdir(parents=True)
 
-        with open(filename, 'w') as config_file:
-            for key, value in config_data.items():
-                config_file.write(f"{key}={value}\n")
+    # Write configuration efficiently
+    filepath.write_text(
+        '\n'.join(f"{key}={value}" for key, value in config_data.items())
+    )
+    logging.info(f"Configuration file '{filepath}' created successfully.")
 
-        logging.info(f"Configuration file '{filename}' created successfully.")
-    except OSError as e:
-        logging.error(f"File system error creating config file '{filename}': {e}")
-        raise
-    except Exception as e:
-        logging.error(f"Unexpected error creating config file '{filename}': {e}", exc_info=True)
-        raise
-
-
-def create_env(secret_key: str = '', bot_token: str = '',
-               db_user: Optional[str] = '', db_password: Optional[str] = '',
-               db_host: Optional[str] = '', db_name: Optional[str] = '',
-               db_port: str = '5432') -> None:
+def create_env(
+    secret_key: str = '', 
+    bot_token: str = '',
+    db_user: Optional[str] = None,
+    db_password: Optional[str] = None,
+    db_host: Optional[str] = None,
+    db_name: Optional[str] = None,
+    db_port: str = '5432'
+) -> None:
     """
-    Create a configuration file for crypto settings and database connection.
-
+    Create a configuration file with efficient data handling.
+    
     Args:
-        secret_key (str): The secret key for cryptographic operations.
-        bot_token (str): The bot token for authentication.
-        db_user (str, optional): The database user (default is empty).
-        db_password (str, optional): The database password (default is empty).
-        db_host (str, optional): The database host (default is empty).
-        db_name (str, optional): The database name (default is empty).
-        db_port (str, optional): The database port (default is '5432').
+        secret_key (str): Cryptographic secret key.
+        bot_token (str): Bot authentication token.
+        db_user (str, optional): Database username.
+        db_password (str, optional): Database password.
+        db_host (str, optional): Database host.
+        db_name (str, optional): Database name.
+        db_port (str, optional): Database port.
     """
     config_data = {
-        'SECRET_KEY': secret_key,
-        'BOT_TOKEN': bot_token,
-        'DB_USER': db_user or 'None',
-        'DB_PASSWORD': db_password or 'None',
-        'DB_HOST': db_host or 'None',
-        'DB_PORT': db_port,
-        'DB_NAME': db_name or 'None',
+        key: value or 'None' 
+        for key, value in {
+            'SECRET_KEY': secret_key,
+            'BOT_TOKEN': bot_token,
+            'DB_USER': db_user,
+            'DB_PASSWORD': db_password,
+            'DB_HOST': db_host,
+            'DB_PORT': db_port,
+            'DB_NAME': db_name
+        }.items()
     }
 
-    create_config_file(ENV_FILE_PATH, config_data)
+    create_config_file(
+        Path(__file__).parent.parent / ".env", 
+        config_data
+    )

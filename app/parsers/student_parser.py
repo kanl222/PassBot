@@ -1,78 +1,99 @@
-from bs4 import BeautifulSoup
+from typing import Any, List, Dict, Optional
+from urllib.parse import ParseResult, urlparse, parse_qs
+from bs4 import BeautifulSoup, NavigableString, Tag
 from aiohttp import ClientResponse
-from urllib.parse import urlparse, parse_qs
-from app.db.models.users import Student, UserRole
 import logging
+from .support import HTMLParser
+from app.db.models.users import UserRole
 
-async def parse_students_list(response: ClientResponse) -> list[dict]:
-    """
-    Parses user data from the HTML response and returns it as a list of dictionaries.
 
-    :param response: A ClientResponse object containing HTML with user data.
-    :return: A list of dictionaries with student data.
-    """
-    try:
-        soup = BeautifulSoup(await response.text(), 'lxml')
-        table = soup.find('table', {"class": "table-visits"})
-        rows = table.find_all('tr')
-        students = []
+class StudentParser(HTMLParser):
+    @classmethod
+    async def parse_students_list(cls, response: ClientResponse) -> List[Dict[str, Any]]:
+        """
+        Parse a list of students from an HTML response.
+        
+        Args:
+            response: HTML response containing student list.
+        
+        Returns:
+            List of student dictionaries.
+        """
+        try:
+            soup = BeautifulSoup(await response.text(), 'lxml')
+            table: Tag | NavigableString | None = soup.find('table', {"class": "table-visits"})
+            
+            if not table:
+                logging.warning("No student table found")
+                return []
 
-        for row in rows[4:]:  # Пропускаем заголовки таблицы
-            user_name_tag = row.find('td', {'colspan': 2})
-            if user_name_tag:
-                full_name = user_name_tag.get_text(strip=True)
-
+            students = []
+            for row in table.find_all('tr')[4:]: 
+                user_name_tag = row.find('td', {'colspan': 2})
                 user_link_tag = row.find('a', href=True)
-                if user_link_tag:
-                    user_link = user_link_tag['href']
-                    parsed_url = urlparse(user_link)
-                    user_id = parse_qs(parsed_url.query).get('stud', [None])[0]
-                    kodstud = parse_qs(parsed_url.query).get('kodstud', [None])[0]
 
-                    if user_id and kodstud:
-                        student = {
-                            "id_stud": int(user_id),
-                            "kodstud": int(kodstud),
-                            "full_name": full_name,
-                            "role": UserRole.STUDENT
-                        }
-                        students.append(student)
+                if not user_name_tag or not user_link_tag:
+                    continue
 
-        return students
+                full_name: str | None = cls.safe_extract_text(user_name_tag)
+                user_link = user_link_tag['href']
 
-    except Exception as e:
-        logging.error(f"Ошибка при разборе списка студентов: {e}")
-        return []
+                user_id: str | None = cls.parse_query_param(user_link, 'stud')
+                kodstud: str | None = cls.parse_query_param(user_link, 'kodstud')
 
+                if user_id and kodstud:
+                    students.append({
+                        "id_stud": int(user_id),
+                        "kodstud": int(kodstud),
+                        "full_name": full_name,
+                        "role": UserRole.STUDENT
+                    })
 
-async def parse_student(response: ClientResponse) -> dict:
-    """
-    Parses the student data from the HTML response and returns it as a dictionary.
+            return students
 
-    :param response: The ClientResponse object with the HTML page of the student profile.
-    :return: A dictionary representing the parsed student.
-    """
-    try:
-        soup = BeautifulSoup(await response.text(), 'lxml')
-        print(soup)
-        table_info = soup.find("div", id="title_info")
+        except Exception as e:
+            logging.error(f"Error parsing students list: {e}")
+            return []
 
-        if not table_info:
-            raise ValueError("Не найден блок с информацией о студенте.")
+    @classmethod
+    async def parse_student(cls, response: ClientResponse) -> Dict[str, Any]:
+        """
+        Parse individual student data from HTML response.
+        
+        Args:
+            response: HTML response containing student profile.
+        
+        Returns:
+            Dictionary with student information.
+        
+        Raises:
+            ValueError: If critical student information cannot be parsed.
+        """
+        try:
+            soup = BeautifulSoup(await response.text(), 'lxml')
+            table_info: Tag | NavigableString | None = soup.find("div", id="title_info")
 
-        name_tag = table_info.find_all("p")[1].find("b")
-        if not name_tag:
-            raise ValueError("Не найден элемент с именем студента. Проверьте HTML.")
+            if not table_info:
+                raise ValueError("Student information block not found")
 
-        full_name = name_tag.get_text(strip=True)
+            name_tags = table_info.find_all("p")
+            if len(name_tags) < 2:
+                raise ValueError("Insufficient student information")
 
-        student = {
-            "full_name": full_name,
-            "role": UserRole.STUDENT
-        }
+            name_tag = name_tags[1].find("b")
+            full_name: str | None = cls.safe_extract_text(name_tag)
 
-        return student
+            if not full_name:
+                raise ValueError("Student name could not be extracted")
 
-    except Exception as e:
-        logging.error(f"Ошибка при разборе данных студента: {e}")
-        raise
+            return {
+                "full_name": full_name,
+                "role": UserRole.STUDENT
+            }
+
+        except ValueError as ve:
+            logging.error(f"Student parsing error: {ve}")
+            raise
+        except Exception as e:
+            logging.error(f"Unexpected error parsing student: {e}")
+            raise

@@ -15,12 +15,13 @@ logging.basicConfig(level=logging.INFO)
 logger: logging.Logger = logging.getLogger(__name__)
 
 SqlAlchemyBase = declarative_base()
+
 from . import __all_models
 
 class DatabaseSessionManager:
     def __init__(self) -> None:
-        self._session_factory: Optional[sessionmaker] = None
-        self._engine: Optional[AsyncEngine] = None
+        self._engine: AsyncEngine | None = None
+        self._session_factory: async_sessionmaker | None = None
 
     def initialize(self, database_url: str, pool_size: int = 20, max_overflow: int = 80) -> None:
         """
@@ -35,15 +36,12 @@ class DatabaseSessionManager:
             logger.warning("Database is already initialized.")
             return
 
-
-
         if not database_url:
-            raise ValueError("Database connection parameters must be provided.")
+            raise ValueError(
+                "Database connection parameters must be provided.")
 
-        if IS_POSTGRESQL:
-            logger.info(f"Connecting to PostgreSQL database at {database_url}...")
-        else:
-            logger.info(f"Connecting to SQLite database at {database_url}...")
+        logger.info(f"Connecting to {
+                    'PostgreSQL' if IS_POSTGRESQL else 'SQLite'} database")
 
         try:
             self._engine = create_async_engine(
@@ -59,7 +57,7 @@ class DatabaseSessionManager:
                 logger.info("SQLite database initialization complete.")
 
         except Exception as e:
-            logger.error(f"Error initializing database: {e}")
+            logger.error(f"Database initialization error: {e}")
             raise
 
     async def init_models(self, drop_existing: bool = False) -> None:
@@ -69,7 +67,8 @@ class DatabaseSessionManager:
         :param drop_existing: If True, drop all existing tables before creating new ones.
         """
         if self._engine is None:
-            raise ValueError("Engine is not initialized. Call initialize() first.")
+            raise ValueError(
+                "Engine is not initialized. Call initialize() first.")
 
         logger.info("Initializing database models...")
         try:
@@ -86,27 +85,24 @@ class DatabaseSessionManager:
             logger.error(f"Error initializing models: {e}")
             raise
 
-    @contextlib.asynccontextmanager
+    @asynccontextmanager
     async def session(self) -> AsyncIterator[AsyncSession]:
-        """
-        Provides an asynchronous context manager for database sessions.
-
-        Rolls back the transaction in case of an exception and closes the session afterwards.
-        """
-        if self._session_factory is None:
-            raise IOError("DatabaseSessionManager is not initialized")
+        """Provide a transactional session context."""
+        if not self._session_factory:
+            raise RuntimeError("Database not configured")
 
         async with self._session_factory() as session:
             try:
                 yield session
+                await session.commit()
             except Exception as e:
-                logger.error(f"Session error, rolling back: {e}")
                 await session.rollback()
+                logger.error(f"Session error: {e}")
                 raise
             finally:
                 await session.close()
 
-    def get_base(self) -> SqlAlchemyBase: # type: ignore
+    def get_base(self) -> SqlAlchemyBase:  # type: ignore
         """
         Return the declarative base for model definitions.
         """
@@ -121,29 +117,21 @@ class DatabaseSessionManager:
                 await self._engine.dispose()
                 logger.info("Database connection closed.")
             except Exception as e:
-                logger.error(f"Error during database shutdown: {e}")
-                raise
+                logger.error(f"Shutdown error: {e}")
 
 
 db_session_manager = DatabaseSessionManager()
 
+
 @asynccontextmanager
 async def get_session() -> AsyncIterator[AsyncSession]:
-    """
-    A generator that provides an asynchronous session to be used in database operations.
-    Ensures proper resource management using the session context manager.
-    """
+    """Simplified session context manager."""
     async with db_session_manager.session() as session:
         yield session
 
 
 def with_session(func: Callable):
-    """
-    A decorator that provides a database session as an argument to the wrapped function.
-
-    :param func: The function to be wrapped.
-    """
-
+    """Decorator to inject database session into function."""
     @wraps(func)
     async def wrapper(*args, **kwargs) -> Any:
         async with get_session() as session:

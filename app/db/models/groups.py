@@ -4,7 +4,7 @@ from sqlalchemy.orm import relationship
 from ..db_session import SqlAlchemyBase
 
 class Group(SqlAlchemyBase):
-    __tablename__ = 'groups'
+    __tablename__: str = 'groups'
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     id_curator = Column(Integer, ForeignKey('users.id'), nullable=False)

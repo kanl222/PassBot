@@ -1,77 +1,52 @@
+from typing import List, Dict, Optional
 from bs4 import BeautifulSoup, NavigableString, Tag
-from aiohttp import ClientResponse
-from urllib.parse import urlparse, parse_qs
-from app.db.models.users import Student, UserRole
+import json
 import logging
-
-async def parse_students_list(response: ClientResponse) -> list[dict]:
-    """
-    Parses user data from the HTML response and returns it as a list of dictionaries.
-
-    :param response: A ClientResponse object containing HTML with user data.
-    :return: A list of dictionaries with student data.
-    """
-    try:
-        soup = BeautifulSoup(await response.text(), 'lxml')
-        table: Tag | NavigableString | None = soup.find('table', {"class": "table-visits"})
-        rows = table.find_all('tr')
-        students = []
-
-        for row in rows[4:]:  # Пропускаем заголовки таблицы
-            user_name_tag = row.find('td', {'colspan': 2})
-            if user_name_tag:
-                full_name = user_name_tag.get_text(strip=True)
-
-                user_link_tag = row.find('a', href=True)
-                if user_link_tag:
-                    user_link = user_link_tag['href']
-                    parsed_url = urlparse(user_link)
-                    user_id = parse_qs(parsed_url.query).get('stud', [None])[0]
-                    kodstud = parse_qs(parsed_url.query).get('kodstud', [None])[0]
-
-                    if user_id and kodstud:
-                        student = {
-                            "id_stud": int(user_id),
-                            "kodstud": int(kodstud),
-                            "full_name": full_name,
-                            "role": UserRole.STUDENT
-                        }
-                        students.append(student)
-
-        return students
-
-    except Exception as e:
-        logging.error(f"Ошибка при разборе списка студентов: {e}")
-        return []
+from .support import HTMLParser
 
 
-async def parse_student(response: ClientResponse) -> dict:
-    """
-    Parses the student data from the HTML response and returns it as a dictionary.
+class GroupParser(HTMLParser):
+    @classmethod
+    def parse_groups(cls, html_content: str) -> List[Dict[str, str]]:
+        """
+        Parse group information from HTML content.
+        
+        Args:
+            html_content: HTML string containing group information.
+        
+        Returns:
+            List of dictionaries with group details.
+        """
+        try:
+            soup = BeautifulSoup(html_content, 'lxml')
+            table: Tag | NavigableString | None = soup.find('table')
+            
+            if not table:
+                logging.warning("No table found in HTML content")
+                return []
 
-    :param response: The ClientResponse object with the HTML page of the student profile.
-    :return: A dictionary representing the parsed student.
-    """
-    try:
-        soup = BeautifulSoup(await response.text(), 'lxml')
-        table_info = soup.find("div", id="title_info")
+            group_data = []
+            group_rows = table.find_all('tr')
+            
+            for row in group_rows:
+                cells = row.find_all('td', class_='va-baseline padding-small limit-width')
+                
+                for cell in cells:
+                    group_link = cell.find('a')
+                    if not group_link:
+                        continue
 
-        if not table_info:
-            raise ValueError("Не найден блок с информацией о студенте.")
+                    group_name: str | None = cls.safe_extract_text(group_link)
+                    group_id = group_link.get('href', '').split('=')[-1]
 
-        name_tag = table_info.find("p").find("b")
-        if not name_tag:
-            raise ValueError("Не найден элемент с именем студента. Проверьте HTML.")
+                    if group_name and group_id:
+                        group_data.append({
+                            'name': group_name,
+                            'id': group_id
+                        })
 
-        full_name = name_tag.get_text(strip=True)
+            return group_data
 
-        student = {
-            "full_name": full_name,
-            "role": UserRole.STUDENT
-        }
-
-        return student
-
-    except Exception as e:
-        logging.error(f"Ошибка при разборе данных студента: {e}")
-        raise
+        except Exception as e:
+            logging.error(f"Error parsing groups: {e}")
+            return []

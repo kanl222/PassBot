@@ -1,30 +1,54 @@
-from bs4 import BeautifulSoup
+from typing import Dict, Any
+from bs4 import BeautifulSoup, NavigableString, Tag
 from aiohttp import ClientResponse
-from app.db.models.users import User, UserRole
 import logging
 
-async def parse_teacher(response: ClientResponse) -> dict:
-    """
-    Parses teacher data from the HTML response and returns it as a dictionary.
+from app.db.models.users import UserRole
+from .support import HTMLParser
 
-    :param response: A ClientResponse object containing HTML with teacher data.
-    :return: A dictionary representing the parsed teacher.
-    """
-    try:
-        soup = BeautifulSoup(await response.text(), 'lxml')
-        name_tag = soup.find("div", id="title_info").find_all("p")[1].find("b")
-        if not name_tag:
-            raise ValueError("Unable to find element with teacher name. Please check your HTML.")
 
-        full_name = name_tag.get_text(strip=True)
 
-        teacher = {
-            "full_name": full_name,
-            "role": UserRole.TEACHER
-        }
+class TeacherParser(HTMLParser):
+    @classmethod
+    async def parse_teacher(cls, response: ClientResponse) -> Dict[str, Any]:
+        """
+        Parse teacher data from HTML response.
 
-        return teacher
+        Args:
+            response: HTML response containing teacher profile.
 
-    except Exception as e:
-        logging.error(f"Parsing error for teacher: {e}")
-        raise
+        Returns:
+            Dictionary with teacher information.
+
+        Raises:
+            ValueError: If critical teacher information cannot be parsed.
+        """
+        try:
+            soup = BeautifulSoup(await response.text(), 'lxml')
+            title_info: Tag | NavigableString | None = soup.find(
+                "div", id="title_info")
+
+            if not title_info:
+                raise ValueError("Teacher information block not found")
+
+            name_tags = title_info.find_all("p")
+            if len(name_tags) < 2:
+                raise ValueError("Insufficient teacher information")
+
+            name_tag = name_tags[1].find("b")
+            full_name = cls.safe_extract_text(name_tag)
+
+            if not full_name:
+                raise ValueError("Teacher name could not be extracted")
+
+            return {
+                "full_name": full_name,
+                "role": UserRole.TEACHER
+            }
+
+        except ValueError as ve:
+            logging.error(f"Teacher parsing error: {ve}")
+            raise
+        except Exception as e:
+            logging.error(f"Unexpected error parsing teacher: {e}")
+            raise

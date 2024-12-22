@@ -1,12 +1,28 @@
-from typing import Optional, Self, Union
+from functools import wraps
+from typing import Any, Awaitable, Callable, LiteralString, Optional, Self, Union
 import aiohttp
 import asyncio
 import logging
 from aiohttp import ClientError, ClientResponse, ClientSession, BasicAuth
 from bs4 import BeautifulSoup, NavigableString, Tag
-from ..parsers.urls import LOGOUT_URL, link_teacher_supervision, link_to_activity, link_to_personal, link_to_login,BASE_PREPOD_URL
+from ..parsers.urls import LOGOUT_URL, link_teacher_supervision, link_to_activity, link_to_personal, link_to_login, BASE_PREPOD_URL
 
 logging.basicConfig(level=logging.INFO)
+
+
+def handle_session_errors(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+    """Decorator to handle common session-related errors and logging."""
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        try:
+            return await func(*args, **kwargs)
+        except ClientError as e:
+            logging.error(f"Client error in {func.__name__}: {e}")
+            return None
+        except Exception as e:
+            logging.error(f"Unexpected error in {func.__name__}: {e}")
+            return None
+    return wrapper
 
 
 class SessionManager:
@@ -18,7 +34,7 @@ class SessionManager:
         :param password: User password.
         """
         self.login_url = link_to_login
-        self.logout_url = LOGOUT_URL
+        self.logout_url: LiteralString = LOGOUT_URL
         self.session: Optional[ClientSession] = None
         self.auth = BasicAuth(login, password)
         self.status = False
@@ -40,27 +56,18 @@ class SessionManager:
             if self.session:
                 await self.session.close()
 
+    @handle_session_errors
     async def is_authenticated(self) -> bool:
-        """
-        Checks if the session is still valid by posting login credentials and analyzing the response.
-
-        :return: True if authentication is successful, otherwise False.
-        """
+        """Check if the current session is authenticated."""
         if not self.session:
-            logging.warning("Session not initialized. Authentication cannot proceed.")
+            logging.warning("Session not initialized.")
             return False
 
-        try:
-            async with self.session.post(self.login_url, data=self.payload) as response:
-                document = BeautifulSoup(await response.text(), features="lxml")
-                error_div: Union[Tag, NavigableString, None] = document.find(id="error_msg")
-                if error_div and "Неверный логин-пароль" in error_div.get_text():
-                    logging.warning("Session expired or invalid credentials.")
-                    return False
-                return True
-        except Exception as e:
-            logging.error(f"Error during session validation: {e}")
-            return False
+        async with self.session.post(self.login_url, data=self.payload) as response:
+            document = BeautifulSoup(await response.text(), features="lxml")
+            error_div: Tag | NavigableString | None = document.find(
+                id="error_msg")
+            return not (error_div and "Неверный логин-пароль" in error_div.get_text())
 
     async def login(self) -> bool:
         """
@@ -91,73 +98,35 @@ class SessionManager:
             return await self.login()
         return True
 
-    async def request_with_relogin(
-        self, method: str, url: str, **kwargs
-    ) -> Optional[ClientResponse]:
-        """
-        Ensures the session is valid before making a request.
+    @handle_session_errors
+    async def request(self, method: str, url: str, **kwargs) -> Optional[ClientResponse]:
+        """Generic method to handle different HTTP request types with authentication."""
+        async with self.session.request(method.upper(), url, **kwargs) as response:
+            response.raise_for_status()
+            logging.info(f"{method.upper()} request to {url} successful.")
+            self.last_response = response
+            return response
 
-        :param method: HTTP method (GET, POST, etc.).
-        :param url: The target URL for the request.
-        :param kwargs: Additional parameters for the request.
-        :return: The HTTP response object if the request is successful, otherwise None.
-        """
-        try:
-            if not await self.ensure_authenticated():
-                logging.error("Unable to authenticate session. Request aborted.")
-                return None
+    async def get(self, url: str, **kwargs) -> Optional[ClientResponse]:
+        """Simplified GET request method."""
+        return await self.request('get', url, **kwargs)
 
-            async with self.session.request(method.upper(), url, **kwargs) as response:
-                response.raise_for_status()
-                logging.info(f"{method.upper()} request to {url} successful.")
-                self.last_response = response
-                return response
-        except ClientError as e:
-            logging.error(f"{method.upper()} request to {url} failed: {e}")
-            return None
+    async def post(self, url: str, **kwargs) -> Optional[ClientResponse]:
+        """Simplified POST request method."""
+        return await self.request('post', url, **kwargs)
 
-    async def get(self, url: str) -> Optional[ClientResponse]:
-        """
-        Makes a GET request.
-
-        :param url: The target URL for the GET request.
-        :return: The HTTP response object if successful, otherwise None.
-        """
-        return await self.request_with_relogin("get", url)
-
-    async def post(self, url: str, data: dict) -> Optional[ClientResponse]:
-        """
-        Makes a POST request.
-
-        :param url: The target URL for the POST request.
-        :param data: The data to send in the POST request.
-        :return: The HTTP response object if successful, otherwise None.
-        """
-        return await self.request_with_relogin("post", url, data=data)
-
+    @handle_session_errors
     async def logout(self) -> bool:
-        """
-        Logs out of the session by making a request to the LOGOUT_URL.
-
-        :return: True if logout is successful, otherwise False.
-        """
+        """Log out of the current session."""
         if not self.session:
-            logging.warning("Session not initialized. Logout cannot proceed.")
+            logging.warning("Session not initialized.")
             return False
 
-        try:
-            async with self.session.get(self.logout_url) as response:
-                if response.status == 200:
-                    logging.info("Logout successful.")
-                    self.status = False
-                    return True
-                else:
-                    logging.error(f"Logout failed with status code {response.status}.")
-                    return False
-        except ClientError as e:
-            logging.error(f"Logout failed due to client error: {e}")
-            return False
-
+        async with self.session.get(self.logout_url) as response:
+            self.status = response.status != 200
+            logging.info(
+                "Logout " + ("failed" if self.status else "successful"))
+            return not self.status
 
 
 async def is_teacher(session: ClientSession) -> bool:
@@ -168,18 +137,15 @@ async def is_teacher(session: ClientSession) -> bool:
     :return: True if the user is a teacher, otherwise False.
     """
     try:
-        async with (await session.get(link_teacher_supervision)) as response:
+        async with await session.get(link_teacher_supervision) as response:
             if response.status != 200:
-                logging.error(f"Error accessing {link_teacher_supervision}: {response.status}")
                 return False
+            
             soup = BeautifulSoup(await response.text(), 'lxml')
             error_span: Tag | NavigableString | None = soup.find('span', class_='error')
-            if error_span and error_span.text.strip() == 'Нет доступа к Личному кабинету преподавателя!':
-                return False
-            logging.info("The user is a teacher.")
-            return True
-
+            
+            return not (error_span and error_span.text.strip() == 'Нет доступа к Личному кабинету преподавателя!')
+    
     except Exception as e:
         logging.error(f"Teacher verification error: {e}")
         return False
-

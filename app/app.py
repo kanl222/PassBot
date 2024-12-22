@@ -1,62 +1,59 @@
 import asyncio
 import logging
+import contextlib
 
 from .core.logging_app import setup_logging
 from .core import initialization_settings
 
-try:
-    from .core.settings import TEST_MODE, settings
-
-    setup_logging()
-    initialization_settings()
-except FileNotFoundError as e:
-    from .tools.create_config import create_config_files
-    create_config_files()
-except Exception as e:
-    logging.error(f'{e}')
-    raise
-
-from .core.settings import get_db_url
-from .db import db_session_manager
-try:
-    db_path: str = get_db_url()
-
-    if not db_path:
-        logging.error("Database path must be specified in the configuration file.")
-
-    logging.info(f"Initializing database with path: {db_path}")
-    db_session_manager.initialize(db_path)
-except Exception as e:
-    print(e)
-
-
-
-def db_init_models() -> None:
+async def initialize_application() -> bool:
     """
-    Asynchronous initialization of database models.
-
-    :return: None
+    Comprehensive async application initialization.
+    
+    Consolidates logging, settings, and database initialization.
     """
     try:
-        asyncio.run(db_session_manager.init_models())
-    except Exception as e:
-        logging.error(f"Error initializing database models: {e}", exc_info=True)
-        raise
+        setup_logging()
+        initialization_settings()
 
-def run_bot() -> None:
-    """
-    Launch the bot, ensuring parsing availability first.
+        from .core.settings import settings
+        from .db import db_session_manager
 
-    :return: None
-    """
-    try:
-        if settings.IS_TELEGRAM_BOT_TOKEN:
+        db_path = settings.get_database_url()
+        if not db_path:
+            logging.error("Database path must be specified in the configuration file.")
+            return False
+
+        logging.info(f"Initializing database with path: {db_path}")
+        db_session_manager.initialize(db_path)
+
+        await db_session_manager.init_models()
+
+        if settings.telegram_bot_token:
             from .bot.run_bot import running_bot
             logging.info("Bot is starting...")
-            asyncio.run(running_bot())
+            await running_bot()
             logging.info("Bot started successfully. Ready to run tasks.")
         else:
             logging.error('Telegram bot token is missing. Bot will not start.')
+            return False
+
+        return True
+
+    except FileNotFoundError:
+        from .tools.create_config import create_config_files
+        create_config_files()
+        logging.warning("Configuration files created. Please restart the application.")
+        return False
     except Exception as e:
-        logging.error(f"An error occurred while starting the bot: {e}", exc_info=True)
-        raise
+        logging.error(f"Application initialization error: {e}", exc_info=True)
+        return False
+
+def main():
+    """
+    Entry point for application startup with graceful error handling.
+    """
+    with contextlib.suppress(KeyboardInterrupt):
+        asyncio.run(initialize_application())
+
+if __name__ == "__main__":
+    main()
