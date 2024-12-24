@@ -1,9 +1,23 @@
+from functools import wraps
 import logging
-from typing import Dict, List
+from typing import Any, Callable, Dict, List
 from aiogram import types, Router
 from aiogram.filters import Command
+from app.db.models.users import UserRole
 from app.services.teacher import first_parser_data
+from app.services.users import get_user_instance
 import asyncio
+
+
+def is_teacher(func: Callable):
+    """Decorator to inject database session into function."""
+    @wraps(func)
+    async def wrapper(*args, **kwargs) -> Any:
+        telegram_id = args[0].from_user.id
+        if user:= await get_user_instance(telegram_id=telegram_id):
+            if user.role == UserRole.TEACHER:
+                return await func(*args, **kwargs)
+    return wrapper
 
 
 class DataParsingService:
@@ -28,27 +42,25 @@ class DataParsingService:
             raise
 
     @staticmethod
-    async def _fetch_groups(auth_data: Dict[str, str]) -> List[Dict]:
+    async def _fetch_groups(id_telegram:int) -> List[Dict]:
         """Fetch groups for a teacher."""
         await asyncio.sleep(1)
         return [{"id": 1, "name": "Группа 101"}, {"id": 2, "name": "Группа 102"}]
 
     @staticmethod
-    async def _fetch_students(groups: List[Dict]) -> List[Dict]:
+    async def _fetch_students(id_telegram:int) -> List[Dict]:
         """Fetch students for given groups."""
         await asyncio.sleep(1)
         return [{"name": "Иван Иванов"}, {"name": "Петр Петров"}]
 
-    @staticmethod
-    async def _save_parsed_data(groups: List[Dict], students: List[Dict]) -> None:
-        """Save parsed data to storage."""
-        await asyncio.sleep(1)
+
 
 
 teacher_router = Router()
 
 
 @teacher_router.message(Command(commands=["groups"]))
+@is_teacher
 async def list_groups(cls, message: types.Message) -> None:
     """List teacher's groups."""
     groups = [group['name'] for group in await DataParsingService._fetch_groups({})]
@@ -56,6 +68,7 @@ async def list_groups(cls, message: types.Message) -> None:
 
 
 @teacher_router.message(Command(commands=["absences"]))
+@is_teacher
 async def list_absences(cls, message: types.Message) -> None:
     """List student absences."""
     students = await DataParsingService._fetch_students([])

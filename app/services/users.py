@@ -1,92 +1,101 @@
-from typing import Any, Dict, Optional, Tuple
-from sqlalchemy import Result
-from sqlalchemy.future import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.db_session import with_session,get_session
-from app.db.models.users import User
-from functools import cached_property
 import logging
-from .tools import LookupCache
+from typing import Optional, Union, List, Type, TypeVar
+from unittest.mock import Base
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
+from sqlalchemy.ext.asyncio import AsyncSession
 
-class UserLookupService:
-    @cached_property
-    def cache(self) -> LookupCache:
-        """Lazily initialized user lookup cache."""
-        return LookupCache()
+from app.db.db_session import get_session
+from app.db.models.users import Student, Teacher, User
+from app.services.tools import async_lru_cache
 
-    async def get_user(self, telegram_id: int) -> Optional[User]:
+ModelType = TypeVar('ModelType', bound=Base)
+
+
+class UniversalQueryService:
+    @classmethod
+    @async_lru_cache(1000)
+    async def get_entities(
+        cls,
+        model: Type[ModelType],
+        id: Optional[int] = None,
+        **filters
+    ) -> Union[ModelType, List[ModelType], None]:
         """
-        Retrieve the `User` instance for the given Telegram ID.
+        Unified, efficient query method for retrieving database entities.
 
         Args:
-            telegram_id: Telegram ID of the user to check.
-            db_session: SQLAlchemy Async Session for database interaction.
+            model: SQLAlchemy model class to query
+            id: Optional specific entity ID
+            **filters: Additional filtering conditions
 
         Returns:
-            User instance if found, otherwise None.
+            Single entity, list of entities, or None
         """
-        cached_result: Dict[str, Any] | None = self.cache.get(telegram_id)
-        if cached_result and "user_instance" in cached_result:
-            logging.info(f"Cache hit for Telegram ID {telegram_id}")
-            return cached_result["user_instance"]
-
         try:
             async with get_session() as db_session:
-                result: Result[Tuple[User]] = await db_session.execute(
-                    select(User).filter(User.telegram_id == telegram_id)
-                )
-                user: User | None = result.scalar()
-                if user:
-                    self.cache.set(telegram_id, {"user_instance": user})
-                return user
+                query = select(model)
+
+                if id is not None:
+                    query = query.filter(model.id == id)
+
+                # Apply  filters
+                for key, value in filters.items():
+                    query = query.filter(getattr(model, key) == value)
+
+                query = query.options(selectinload('*'))
+
+                result = await db_session.execute(query)
+                entities = result.scalars().all()
+
+                return entities[0] if id is not None and entities else entities
+
         except Exception as e:
-            logging.error(f"Error retrieving user from DB: {e}")
-            return None
+            logging.error(f"{model.__name__} retrieval error: {e}")
+            return None if id is not None else []
 
-    def create_user_response(self, user: Optional[User]) -> Dict[str, Any]:
-        """
-        Create a standardized response for a user lookup.
 
-        Args:
-            user: The `User` instance or None if not found.
+class UserLookupService:
+    @classmethod
+    async def get_user_of_telegram_id(cls, telegram_id: int) -> Optional[User]:
+        """Retrieve user by Telegram ID with optimized querying."""
+        return await UniversalQueryService.get_entities(
+            User,
+            telegram_id=telegram_id
+        )
 
-        Returns:
-            A dictionary response.
-        """
-        if user:
-            return {
-                "status": "exists",
-                "user": user.full_name,
-                "role": user.role.value,
-                "error_message": None
-            }
-        return {
-            "status": "not_found",
-            "user": None,
-            "role": None,
-            "error_message": None
-        }
+    @classmethod
+    async def get_teacher(cls, id: Optional[int] = None) -> Union[Teacher, List[Teacher], None]:
+        """Retrieve teachers with flexible filtering."""
+        return await UniversalQueryService.get_entities(Teacher, id=id)
 
-    async def check_user_in_db(self, telegram_id: int) -> Dict[str, Any]:
-        """
-        Check user existence and return a response dictionary.
+    @classmethod
+    async def get_student(
+        cls,
+        id: Optional[int] = None,
+        full_name: Optional[str] = None,
+        id_group: Optional[int] = None
+    ) -> Union[Student, List[Student], None]:
+        """Retrieve students with flexible filtering."""
+        return await UniversalQueryService.get_entities(
+            Student,
+            id=id,
+            full_name=full_name,
+            group_id=id_group
+        )
 
-        Args:
-            telegram_id: Telegram ID of the user to check.
-            db_session: SQLAlchemy Async Session for database interaction.
-
-        Returns:
-            A dictionary with user existence information.
-        """
-        user: User | None = await self.get_user(telegram_id)
-        return self.create_user_response(user)
-
-user_lookup_service = UserLookupService()
 
 async def get_user_instance(telegram_id: int) -> Optional[User]:
-    """Retrieve the `User` instance for a given Telegram ID."""
-    return await user_lookup_service.get_user(telegram_id)
+    return await UserLookupService.get_user_of_telegram_id(telegram_id)
 
-async def get_user_response(telegram_id: int) -> Dict[str, Any]:
-    """Retrieve the response dictionary for a given Telegram ID."""
-    return await user_lookup_service.check_user_in_db(telegram_id)
+
+async def get_teacher(id: Optional[int] = None) -> Union[Teacher, List[Teacher], None]:
+    return await UserLookupService.get_teacher(id)
+
+
+async def get_student(
+    id: Optional[int] = None,
+    full_name: Optional[str] = None,
+    id_group: Optional[int] = None
+) -> Union[Student, List[Student], None]:
+    return await UserLookupService.get_student(id, full_name, id_group)

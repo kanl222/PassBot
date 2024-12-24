@@ -58,6 +58,7 @@ class Student(User):
     kodstud = Column(Integer, nullable=True)
     id_stud = Column(Integer, nullable=True)
     group_id = Column(Integer, ForeignKey('groups.id'), nullable=True)
+    role = UserRole.STUDENT
 
     group = relationship("Group", back_populates="students", foreign_keys=[group_id])
     # absences = relationship("Absence", back_populates="student")
@@ -70,9 +71,11 @@ class Teacher(User):
     __tablename__: str = 'teachers'
 
     id = Column(Integer, ForeignKey('users.id'), primary_key=True)
+    role = UserRole.TEACHER
+    
+    from .groups import Group
+    _curated_groups = relationship("Group", back_populates="curator", foreign_keys=[Group.id_curator])
 
     def __repr__(self) -> str:
         return f"<Teacher(id={self.id}, full_name={self.full_name})>"
 
-from .groups import Group
-User.curated_groups = relationship("Group", back_populates="curator", foreign_keys=[Group.id_curator])

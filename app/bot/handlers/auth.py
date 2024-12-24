@@ -6,10 +6,11 @@ from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from app.bot.handlers.teacher import DataParsingService
+from app.db.models.users import User
 from app.services.auth import authenticated_users
 import logging
 
-from app.services.users import get_user_response
+from app.services.users import get_user_instance
 
 
 auth_router: Router = Router()
@@ -54,14 +55,15 @@ async def handle_auth_response(message: types.Message, auth_response: Dict[str, 
 @auth_router.message(Command(commands=["start"]))
 async def start_auth(message: types.Message, state: FSMContext) -> None:
     try:
-        user = await get_user_response(telegram_id=message.from_user.id)
 
-        if user.get("status") == "exists":
-            await message.answer(
-                f"Добро пожаловать обратно, {
-                    user['user']}! Вы зарегистрированы как {user['role']}."
-            )
-            return
+        user: User | None = await get_user_instance(telegram_id=message.from_user.id)
+        if user:
+            if user:= user[0]:
+                await message.answer(
+                    f"Добро пожаловать обратно, {
+                        user.full_name}! Вы зарегистрированы как {user.role}."
+                )
+                return
 
         await message.answer("Пожалуйста, введите свой логин:")
         await state.set_state(AuthStates.awaiting_login)

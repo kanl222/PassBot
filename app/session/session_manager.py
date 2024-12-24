@@ -123,7 +123,7 @@ class SessionManager:
             return False
 
         async with self.session.get(self.logout_url) as response:
-            self.status = response.status != 200
+            self.status: bool =False
             logging.info(
                 "Logout " + ("failed" if self.status else "successful"))
             return not self.status

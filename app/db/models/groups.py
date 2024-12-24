@@ -12,7 +12,7 @@ class Group(SqlAlchemyBase):
     name = Column(String(100), unique=True, nullable=False)
 
     # Relationships
-    curator = relationship("User", back_populates="curated_groups", foreign_keys=[id_curator])
+    curator = relationship("Teacher", back_populates="_curated_groups", foreign_keys=[id_curator])
     students = relationship("Student", back_populates="group", foreign_keys="Student.group_id")
 
     def __repr__(self) -> str:

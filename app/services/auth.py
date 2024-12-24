@@ -4,12 +4,13 @@ from typing import Dict, Any
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
 
+from app.services.users import get_student
 from app.session.session_manager import is_teacher, SessionManager
 from app.parsers.urls import link_to_login
 from app.parsers.teacher_parser import TeacherParser
 from app.parsers.student_parser import StudentParser
 from app.db.db_session import with_session
-from app.db.models.users import User, UserRole, Teacher
+from app.db.models.users import Student, User, UserRole, Teacher
 from app.core.security import crypto
 
 
@@ -65,21 +66,19 @@ async def _handle_student_registration(sm, user_data, telegram_id, db_session) -
     student_data: Dict[str, Any] = await StudentParser.parse_student(await sm.session.get(link_to_login))
     user_data.update(student_data)
     user_data["role"] = UserRole.STUDENT
+    existing_student = await get_student(full_name=user_data['full_name'])
+    print(existing_student)
+    if existing_student:
+        if existing_student := existing_student[0]:
+            existing_student.telegram_id = telegram_id
+            await db_session.commit()
+            return create_response(
+                "updated",
+                role=existing_student.role.value,
+                user=existing_student.full_name
+            )
 
-    existing_student = await db_session.execute(
-        select(User).filter(User.full_name ==
-               student_data["full_name"], User.role == UserRole.STUDENT)
-    )
-    if existing_student := existing_student.scalar():
-        existing_student.telegram_id = telegram_id
-        await db_session.commit()
-        return create_response(
-            "updated",
-            role=existing_student.role.value,
-            user=existing_student.full_name
-        )
-
-    new_student = User(
+    new_student = Student(
         full_name=student_data["full_name"],
         role=UserRole.STUDENT,
         telegram_id=telegram_id

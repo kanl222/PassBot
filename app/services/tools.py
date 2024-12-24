@@ -1,20 +1,36 @@
-from typing import Any, Dict, Optional
+import asyncio
+from functools import lru_cache, wraps
+from typing import Any, Callable, Dict, Optional
+
+def async_lru_cache(maxsize: Optional[int] = 128, typed: bool = False):
+    """
+    LRU cache decorator for async functions with minimal overhead.
+    
+    Args:
+        maxsize: Maximum size of the cache
+        typed: If True, arguments of different types will be cached separately
+    
+    Returns:
+        Cached async function
+    """
+    def decorator(func):
+        @lru_cache(maxsize=maxsize, typed=typed)
+        def cached_func(*args, **kwargs):
+            return asyncio.run(func(*args, **kwargs))
+        
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            return await asyncio.get_event_loop().run_in_executor(
+                None, 
+                lambda: cached_func(*args, **kwargs)
+            )
+        
+        wrapper.cache_info = cached_func.cache_info
+        wrapper.cache_clear = cached_func.cache_clear
+        return wrapper
+    
+    return decorator
 
 
 
-class LookupCache:
-    """Efficient in-memory cache for user lookups."""
 
-    def __init__(self, max_size: int = 1000):
-        self._cache: dict = {}
-        self._max_size = max_size
-
-    def get(self, telegram_id: int) -> Optional[Dict[str, Any]]:
-        """Retrieve cached user data."""
-        return self._cache.get(telegram_id)
-
-    def set(self, telegram_id: int, user_data: Dict[str, Any]) -> None:
-        """Cache user data with size management."""
-        if len(self._cache) >= self._max_size:
-            self._cache.pop(next(iter(self._cache)))
-        self._cache[telegram_id] = user_data
