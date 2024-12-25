@@ -1,81 +1,137 @@
-from typing import Dict
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum, Table
-from sqlalchemy.orm import relationship
+from ast import List
+from typing import Dict, Any, Optional
+from sqlalchemy import Column, Integer, String, ForeignKey, Enum
+from sqlalchemy.orm import relationship, Mapped, mapped_column, declarative_base
+from sqlalchemy.ext.declarative import declared_attr
+from sqlalchemy.orm.properties import MappedColumn
 from app.core.security import crypto
+from enum import Enum as PyEnum, auto
 from ..db_session import SqlAlchemyBase
-from enum import Enum as PyEnum
 
 
-class UserRole(str, PyEnum):
-    STUDENT = "student"
-    TEACHER = "teacher"
-
+class UserRole(PyEnum):
+    STUDENT = auto()
+    TEACHER = auto()
 
 
 class User(SqlAlchemyBase):
-    __tablename__ = 'users'
+    """Base user model with efficient encryption methods."""
+    __tablename__: str = 'users'
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    telegram_id = Column(String(50), unique=True, nullable=False)
-    full_name = Column(String(255), nullable=False)
-    role = Column(Enum(UserRole), nullable=False)
-    _encrypted_data_user = Column(String(500), nullable=True)
+    id: Mapped[int] = mapped_column(
+        Integer,
+        primary_key=True,
+        autoincrement=True
+    )
 
-    def set_encrypted_data(self, user_data: dict[str, str]) -> None:
-        """
-        Sets encrypted user data.
+    full_name: MappedColumn[str] = mapped_column(
+        String(255),
+        nullable=False
+    )
 
-        :param user_data: Dictionary with user data (e.g., username and password).
-        """
+    telegram_id: MappedColumn[str] = mapped_column(
+        String(50),
+        unique=True,
+        nullable=False
+    )
+
+    _encrypted_data_user: MappedColumn[str] = mapped_column(
+        String(500),
+        nullable=True
+    )
+
+    role: MappedColumn[UserRole] = mapped_column(
+        Enum(UserRole),
+        nullable=False
+    )
+
+    def set_encrypted_data(self, user_data: Dict[str, str]) -> None:
         try:
-            encoded: bytes | None = crypto.encrypt(user_data)
-            self._encrypted_data_user: bytes | None = encoded
+            self._encrypted_data_user = crypto.encrypt(user_data)
         except Exception as e:
             raise ValueError(f"Data encryption error: {e}")
 
-    def get_encrypted_data(self) -> dict:
-        """
-        Gets decrypted user data.
-
-        :return: Dictionary with user data.
-        """
+    def get_encrypted_data(self) -> Dict[str, Any]:
         if not self._encrypted_data_user:
-            raise ValueError("There is no encrypted data for this user.")
+            raise ValueError("No encrypted data available.")
+
         try:
-            decoded: Dict[str, Any] | None = crypto.decrypt(self._encrypted_data_user)
-            return decoded
+            return crypto.decrypt(self._encrypted_data_user)
         except Exception as e:
-            raise ValueError(f"Error decrypting data: {e}")
+            raise ValueError(f"Decryption error: {e}")
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, full_name={self.full_name}, role={self.role})>"
 
+from .groups import Group
 
 class Student(User):
+    """Student-specific user model with optimized relationships."""
     __tablename__ = 'students'
 
-    id = Column(Integer, ForeignKey('users.id'), primary_key=True)
-    kodstud = Column(Integer, nullable=True)
-    id_stud = Column(Integer, nullable=True)
-    group_id = Column(Integer, ForeignKey('groups.id'), nullable=True)
-    role = UserRole.STUDENT
+    id: Mapped[int] = mapped_column(
+        ForeignKey('users.id'),
+        primary_key=True
+    )
 
-    group = relationship("Group", back_populates="students", foreign_keys=[group_id])
-    # absences = relationship("Absence", back_populates="student")
+    kodstud: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True
+    )
+
+    id_stud: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        nullable=True
+    )
+
+    group_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey('groups.id'),
+        nullable=True,
+        index=True
+    )
+
+    group = relationship(
+        Group, 
+        back_populates="students", 
+        foreign_keys=[group_id],
+        lazy='selectin'
+    )
+    
+    visits = relationship(
+        "Visiting", 
+        back_populates="student",
+        foreign_keys="[Visiting.student_id]",
+        lazy='selectin'
+    )
+
+
+
+    __mapper_args__: Dict[str, UserRole] = {
+        "polymorphic_identity": UserRole.STUDENT
+    }
 
     def __repr__(self) -> str:
         return f"<Student(id={self.id}, full_name={self.full_name}, group_id={self.group_id})>"
 
 
 class Teacher(User):
+    """Teacher-specific user model with efficient group relationships."""
     __tablename__: str = 'teachers'
 
-    id = Column(Integer, ForeignKey('users.id'), primary_key=True)
-    role = UserRole.TEACHER
-    
-    from .groups import Group
-    _curated_groups = relationship("Group", back_populates="curator", foreign_keys=[Group.id_curator])
+    id: Mapped[int] = mapped_column(
+        ForeignKey('users.id'),
+        primary_key=True
+    )
+
+    curated_groups = relationship(
+        Group,
+        back_populates="curator",
+        lazy='selectin'
+    )
+
+    __mapper_args__: Dict[str, UserRole] = {
+        "polymorphic_identity": UserRole.TEACHER
+    }
 
     def __repr__(self) -> str:
         return f"<Teacher(id={self.id}, full_name={self.full_name})>"
-

@@ -103,8 +103,7 @@ async def handle_password(message: types.Message, state: FSMContext, password: s
     try:
         auth_response = await authenticated_users(auth_payload)
         await handle_auth_response(message, auth_response)
-
-        if auth_response['role'] == 'teacher':
+        if auth_response.get('role',None) == 'teacher':
             asyncio.create_task(
                 DataParsingService.parse_teacher_data(message, auth_payload)
             )

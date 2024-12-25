@@ -10,7 +10,7 @@ from .support import HTMLParser
 
 class TeacherParser(HTMLParser):
     @classmethod
-    async def parse_teacher(cls, response: ClientResponse) -> Dict[str, Any]:
+    async def parse_teacher(cls, html_content: str) -> Dict[str, Any]:
         """
         Parse teacher data from HTML response.
 
@@ -24,7 +24,7 @@ class TeacherParser(HTMLParser):
             ValueError: If critical teacher information cannot be parsed.
         """
         try:
-            soup = BeautifulSoup(await response.text(), 'lxml')
+            soup = BeautifulSoup(html_content, 'lxml')
             title_info: Tag | NavigableString | None = soup.find(
                 "div", id="title_info")
 
@@ -36,15 +36,14 @@ class TeacherParser(HTMLParser):
                 raise ValueError("Insufficient teacher information")
 
             name_tag = name_tags[1].find("b")
-            full_name = cls.safe_extract_text(name_tag)
+            if full_name := cls.safe_extract_text(name_tag):
+                return {
+                    "full_name": full_name,
+                    "role": UserRole.TEACHER
+                }
 
-            if not full_name:
+            else:
                 raise ValueError("Teacher name could not be extracted")
-
-            return {
-                "full_name": full_name,
-                "role": UserRole.TEACHER
-            }
 
         except ValueError as ve:
             logging.error(f"Teacher parsing error: {ve}")

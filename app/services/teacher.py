@@ -3,6 +3,7 @@ from functools import lru_cache
 import asyncio
 import logging
 
+from aiohttp import ClientResponse
 from sqlalchemy import Result, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.db_session import with_session
@@ -32,9 +33,7 @@ class TeacherDataProcessor:
             Dictionary of students keyed by full name.
         """
         result = await db_session.execute(
-            select(User, Student)
-            .join(Student, User.id == Student.id, isouter=True)
-            .filter(User.role == UserRole.STUDENT)
+            select(Student)
             .filter_by(Student.group_id is None)
         )
         return {user.full_name: user for user in result.scalars()}
@@ -66,9 +65,8 @@ class TeacherDataProcessor:
             name=group['name']
         )
         db_session.add(_group)
-
-        students_data: List[Dict[str, Any]] = await StudentParser.parse_students_list(
-            await sm.get(link_to_activity.format(group=group['id']))
+        response:ClientResponse | None = await sm.get(link_to_activity.format(group=group['id_group']))
+        students_data: List[Dict[str, Any]] = await StudentParser.parse_students_list( await response.text()
         )
 
         processed_students = []
@@ -109,7 +107,8 @@ class TeacherDataProcessor:
 
         async with SessionManager(self.login, self.password) as sm:
             try:
-                groups = await GroupParser.parse_groups(await sm.get(link_teacher_supervision))
+                response: ClientResponse | None = await sm.get(link_teacher_supervision)
+                groups = await GroupParser.parse_groups(await response.text())
 
                 group_processing_tasks: List[asyncio.Coroutine[Any, Any, List[Student]]] = [
                     self._process_group_students(sm, group, user, db_session, existing_students)

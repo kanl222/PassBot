@@ -37,7 +37,8 @@ async def _handle_teacher_registration(sm, user_data, login, password, telegram_
     Returns:
         dict: A response dictionary indicating the result of the teacher registration.
     """
-    teacher_data: Dict[str, Any] = await TeacherParser.parse_teacher(await sm.session.get(link_to_login))
+    response = await sm.session.get(link_to_login)
+    teacher_data: Dict[str, Any] = await TeacherParser.parse_teacher(await response.text())
     user_data.update(teacher_data)
     user_data["role"] = UserRole.TEACHER
 
@@ -63,7 +64,8 @@ async def _handle_student_registration(sm, user_data, telegram_id, db_session) -
     Returns:
         dict: A response dictionary indicating the result of the student registration.
     """
-    student_data: Dict[str, Any] = await StudentParser.parse_student(await sm.session.get(link_to_login))
+    response = await sm.session.get(link_to_login)
+    student_data: Dict[str, Any] = await StudentParser.parse_student(await response.text())
     user_data.update(student_data)
     user_data["role"] = UserRole.STUDENT
     existing_student = await get_student(full_name=user_data['full_name'])

@@ -5,7 +5,7 @@ from aiogram import types, Router
 from aiogram.filters import Command
 from app.db.models.users import UserRole
 from app.services.teacher import first_parser_data
-from app.services.users import get_user_instance
+from app.services.users import get_teacher
 import asyncio
 
 
@@ -14,16 +14,12 @@ def is_teacher(func: Callable):
     @wraps(func)
     async def wrapper(*args, **kwargs) -> Any:
         telegram_id = args[0].from_user.id
-        if user:= await get_user_instance(telegram_id=telegram_id):
-            if user.role == UserRole.TEACHER:
-                return await func(*args, **kwargs)
+        if user:= await get_teacher(telegram_id=telegram_id):
+            return await func(*args, **kwargs)
     return wrapper
 
 
 class DataParsingService:
-    async def send_progress(self, step: str) -> None:
-        """Helper method to send progress updates."""
-        await self.answer(f"Статус: {step}")
             
     @classmethod
     async def parse_teacher_data(cls, auth_payload: Dict[str, str]) -> None:

@@ -9,18 +9,18 @@ from app.db.models.users import UserRole
 
 class StudentParser(HTMLParser):
     @classmethod
-    async def parse_students_list(cls, response: ClientResponse) -> List[Dict[str, Any]]:
+    async def parse_students_list(cls, html_content: str) -> List[Dict[str, Any]]:
         """
         Parse a list of students from an HTML response.
         
         Args:
-            response: HTML response containing student list.
+            html_content: HTML response containing student list.
         
         Returns:
             List of student dictionaries.
         """
         try:
-            soup = BeautifulSoup(await response.text(), 'lxml')
+            soup = BeautifulSoup(html_content, 'lxml')
             table: Tag | NavigableString | None = soup.find('table', {"class": "table-visits"})
             
             if not table:
@@ -46,7 +46,6 @@ class StudentParser(HTMLParser):
                         "id_stud": int(user_id),
                         "kodstud": int(kodstud),
                         "full_name": full_name,
-                        "role": UserRole.STUDENT
                     })
 
             return students
@@ -56,12 +55,12 @@ class StudentParser(HTMLParser):
             return []
 
     @classmethod
-    async def parse_student(cls, response: ClientResponse) -> Dict[str, Any]:
+    async def parse_student(cls, html_content: str) -> Dict[str, Any]:
         """
         Parse individual student data from HTML response.
         
         Args:
-            response: HTML response containing student profile.
+            html_content: HTML response containing student profile.
         
         Returns:
             Dictionary with student information.
@@ -70,7 +69,7 @@ class StudentParser(HTMLParser):
             ValueError: If critical student information cannot be parsed.
         """
         try:
-            soup = BeautifulSoup(await response.text(), 'lxml')
+            soup = BeautifulSoup(html_content, 'lxml')
             table_info: Tag | NavigableString | None = soup.find("div", id="title_info")
 
             if not table_info:
@@ -81,15 +80,14 @@ class StudentParser(HTMLParser):
                 raise ValueError("Insufficient student information")
 
             name_tag = name_tags[1].find("b")
-            full_name: str | None = cls.safe_extract_text(name_tag)
+            if full_name := cls.safe_extract_text(name_tag):
+                return {
+                    "full_name": full_name,
+                    "role": UserRole.STUDENT
+                }
 
-            if not full_name:
+            else:
                 raise ValueError("Student name could not be extracted")
-
-            return {
-                "full_name": full_name,
-                "role": UserRole.STUDENT
-            }
 
         except ValueError as ve:
             logging.error(f"Student parsing error: {ve}")

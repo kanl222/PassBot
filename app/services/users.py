@@ -65,21 +65,23 @@ class UserLookupService:
         )
 
     @classmethod
-    async def get_teacher(cls, id: Optional[int] = None) -> Union[Teacher, List[Teacher], None]:
+    async def get_teacher(cls, telegram_id: Optional[int] = None) -> Union[Teacher, List[Teacher], None]:
         """Retrieve teachers with flexible filtering."""
-        return await UniversalQueryService.get_entities(Teacher, id=id)
+        return await UniversalQueryService.get_entities(Teacher, telegram_id=id)
 
     @classmethod
     async def get_student(
         cls,
         id: Optional[int] = None,
         full_name: Optional[str] = None,
+        telegram_id: Optional[str] = None,
         id_group: Optional[int] = None
     ) -> Union[Student, List[Student], None]:
         """Retrieve students with flexible filtering."""
         return await UniversalQueryService.get_entities(
             Student,
             id=id,
+            telegram_id = telegram_id,
             full_name=full_name,
             group_id=id_group
         )
@@ -89,13 +91,14 @@ async def get_user_instance(telegram_id: int) -> Optional[User]:
     return await UserLookupService.get_user_of_telegram_id(telegram_id)
 
 
-async def get_teacher(id: Optional[int] = None) -> Union[Teacher, List[Teacher], None]:
-    return await UserLookupService.get_teacher(id)
+async def get_teacher(telegram_id: Optional[int] = None) -> Union[Teacher, List[Teacher], None]:
+    return await UserLookupService.get_teacher(telegram_id)
 
 
 async def get_student(
     id: Optional[int] = None,
+    telegram_id: Optional[str] = None,
     full_name: Optional[str] = None,
     id_group: Optional[int] = None
 ) -> Union[Student, List[Student], None]:
-    return await UserLookupService.get_student(id, full_name, id_group)
+    return await UserLookupService.get_student(id,telegram_id, full_name, id_group)
