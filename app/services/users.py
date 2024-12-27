@@ -48,7 +48,7 @@ class UniversalQueryService:
                 result = await db_session.execute(query)
                 entities = result.scalars().all()
 
-                return entities[0] if id is not None and entities else entities
+                return entities[0] if len(entities) == 1 and entities else entities
 
         except Exception as e:
             logging.error(f"{model.__name__} retrieval error: {e}")
@@ -67,7 +67,7 @@ class UserLookupService:
     @classmethod
     async def get_teacher(cls, telegram_id: Optional[int] = None) -> Union[Teacher, List[Teacher], None]:
         """Retrieve teachers with flexible filtering."""
-        return await UniversalQueryService.get_entities(Teacher, telegram_id=id)
+        return await UniversalQueryService.get_entities(Teacher, telegram_id=telegram_id)
 
     @classmethod
     async def get_student(
@@ -92,7 +92,7 @@ async def get_user_instance(telegram_id: int) -> Optional[User]:
 
 
 async def get_teacher(telegram_id: Optional[int] = None) -> Union[Teacher, List[Teacher], None]:
-    return await UserLookupService.get_teacher(telegram_id)
+    return await UserLookupService.get_teacher(telegram_id=telegram_id)
 
 
 async def get_student(

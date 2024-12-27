@@ -6,9 +6,11 @@ import logging
 from aiohttp import ClientResponse
 from sqlalchemy import Result, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.bot.handlers import teacher
 from app.db.db_session import with_session
 from app.parsers.urls import link_teacher_supervision, link_to_activity
-from app.services.users import get_user_instance
+from app.services import auth
+from app.services.users import get_teacher, get_user_instance
 from app.session.session_manager import SessionManager
 from app.parsers.group_parser import GroupParser
 from app.parsers.student_parser import StudentParser
@@ -16,10 +18,10 @@ from app.db.models.users import Student, User, UserRole
 from app.db.models.groups import Group
 
 class TeacherDataProcessor:
-    def __init__(self, auth_payload: Dict[str, str]) -> None:
-        self.login = auth_payload['login']
-        self.password = auth_payload['password']
-        self.id_telegram = auth_payload['id_user_telegram']
+    def __init__(self, auth_payloud: Dict[str,str],id_telegram) -> None: 
+        self.login = auth_payloud['login']
+        self.password = auth_payloud['password']
+        self.id_telegram = id_telegram
 
     @lru_cache(maxsize=1000)
     async def _get_existing_students(self, db_session: AsyncSession) -> Dict[str, User]:
@@ -99,7 +101,7 @@ class TeacherDataProcessor:
         """
         Efficiently process and store teacher's group and student data.
         """
-        user: User | None = await get_user_instance(self.id_telegram, db_session=db_session)
+        user: User | None = await get_user_instance(telegram_id=self.id_telegram)
         if not user or user.role != UserRole.TEACHER:
             raise ValueError("User is not a teacher or does not exist.")
 
@@ -130,9 +132,13 @@ class TeacherDataProcessor:
                 await db_session.rollback()
                 raise
 
-async def first_parser_data(auth_payload) -> Dict[str, int]:
+async def first_parser_data(telegram_id) -> Dict[str, int]:
     """
     Wrapper function for teacher data processing with improved performance.
     """
-    processor = TeacherDataProcessor(auth_payload)
+    print(telegram_id)
+    auth_payloud = await get_teacher(telegram_id=telegram_id)
+    print(auth_payloud)
+    processor =  TeacherDataProcessor(auth_payloud=auth_payloud.get_encrypted_data(),id_telegram=telegram_id)
+    logging.info(auth_payloud)
     return await processor.process_teacher_data()

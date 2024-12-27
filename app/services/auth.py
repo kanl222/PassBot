@@ -142,7 +142,7 @@ async def authenticated_users(user_input_data: dict, db_session) -> dict:
         return create_response("error", message=str(e))
 
 
-@with_session
+
 async def register_teacher(teacher_data: dict, login: str, password: str, telegram_id: int, db_session) -> None:
     """Registers a teacher in the system's database.
 
@@ -163,7 +163,8 @@ async def register_teacher(teacher_data: dict, login: str, password: str, telegr
         _encrypted_data_user=crypto.encrypt({
             'login':login,
             'password':password
-        })
+        }),
+        role = UserRole.TEACHER
     )
 
     db_session.add(teacher)

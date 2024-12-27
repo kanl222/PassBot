@@ -2,7 +2,6 @@ from functools import wraps
 from functools import wraps
 import logging
 from typing import Any, Callable, Dict, List
-from typing import Any, Callable, Dict, List
 from aiogram import types, Router
 from aiogram.filters import Command
 from app.db.models.users import UserRole
@@ -24,7 +23,7 @@ def is_teacher(func: Callable):
 class DataParsingService:
             
     @classmethod
-    async def parse_teacher_data(cls, auth_payload: Dict[str, str]) -> None:
+    async def parse_teacher_data(cls,telegram_id:int) -> None:
         """
         Orchestrate the parsing of teacher-related data with progress tracking.
 
@@ -33,7 +32,7 @@ class DataParsingService:
         """
 
         try:
-            await first_parser_data(auth_payload=auth_payload)
+            await first_parser_data(telegram_id)
         except Exception as e:
             logging.error(f"Data parsing error: {e}")
             raise
@@ -72,12 +71,15 @@ async def list_absences(cls, message: types.Message) -> None:
     absences = "\n".join([f"{student['name']}: 1 пропуск" for student in students])
     await message.reply(f"Пропуски студентов:\n{absences}")
 
+@teacher_router.message(Command(commands=["test"]))
 
-async def parse_data(cls, message: types.Message, auth_payload: dict) -> None:
+async def parse_data(message: types.Message) -> None:
     """Initiate data parsing process."""
     try:
+        id_telegram: int = message.from_user.id
+        print(id_telegram)
         await message.answer("Начинаем парсинг данных...")
-        await DataParsingService.parse_teacher_data(auth_payload)
+        await DataParsingService.parse_teacher_data(telegram_id=id_telegram)
         await message.answer("Парсинг данных успешно завершён.")
     except Exception as e:
         logging.error(f"Parsing error: {e}")
