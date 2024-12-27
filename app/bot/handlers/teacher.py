@@ -1,5 +1,7 @@
 from functools import wraps
+from functools import wraps
 import logging
+from typing import Any, Callable, Dict, List
 from typing import Any, Callable, Dict, List
 from aiogram import types, Router
 from aiogram.filters import Command
@@ -30,7 +32,6 @@ class DataParsingService:
             auth_data: Authentication data for the teacher.
         """
 
-
         try:
             await first_parser_data(auth_payload=auth_payload)
         except Exception as e:
@@ -40,13 +41,13 @@ class DataParsingService:
     @staticmethod
     async def _fetch_groups(id_telegram:int) -> List[Dict]:
         """Fetch groups for a teacher."""
-        await asyncio.sleep(1)
+        await asyncio.sleep(delay=1)
         return [{"id": 1, "name": "Группа 101"}, {"id": 2, "name": "Группа 102"}]
 
     @staticmethod
     async def _fetch_students(id_telegram:int) -> List[Dict]:
         """Fetch students for given groups."""
-        await asyncio.sleep(1)
+        await asyncio.sleep(delay=1)
         return [{"name": "Иван Иванов"}, {"name": "Петр Петров"}]
 
 
@@ -59,7 +60,7 @@ teacher_router = Router()
 @is_teacher
 async def list_groups(cls, message: types.Message) -> None:
     """List teacher's groups."""
-    groups = [group['name'] for group in await DataParsingService._fetch_groups({})]
+    groups = [group["name"] for group in await DataParsingService._fetch_groups({})]
     await message.reply(f"Ваши группы:\n{chr(10).join(groups)}")
 
 
@@ -68,12 +69,11 @@ async def list_groups(cls, message: types.Message) -> None:
 async def list_absences(cls, message: types.Message) -> None:
     """List student absences."""
     students = await DataParsingService._fetch_students([])
-    absences = "\n".join(
-        [f"{student['name']}: 1 пропуск" for student in students])
+    absences = "\n".join([f"{student['name']}: 1 пропуск" for student in students])
     await message.reply(f"Пропуски студентов:\n{absences}")
 
 
-async def parse_data(cls, message: types.Message,auth_payload:dict) -> None:
+async def parse_data(cls, message: types.Message, auth_payload: dict) -> None:
     """Initiate data parsing process."""
     try:
         await message.answer("Начинаем парсинг данных...")

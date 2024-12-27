@@ -132,7 +132,7 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 
 def with_session(func: Callable):
     """Decorator to inject database session into function."""
-    @wraps(func)
+    @wraps(wrapped=func)
     async def wrapper(*args, **kwargs) -> Any:
         async with get_session() as session:
             kwargs['db_session'] = session

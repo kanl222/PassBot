@@ -38,7 +38,7 @@ class SecretKeyManager:
                 env_file.write(f"\nSECRET_KEY={key}")
             logging.info("New secret key saved to environment.")
         except Exception as e:
-            logging.error(f"Failed to save secret key: {e}")
+            logging.error(msg=f"Failed to save secret key: {e}")
             raise
 
 class DataCrypto:

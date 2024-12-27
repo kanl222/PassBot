@@ -3,16 +3,18 @@ from logging.config import dictConfig
 from dataclasses import dataclass
 from typing import Dict, Optional
 
+
 @dataclass(frozen=True)
 class LogColors:
-    DEBUG: str = '\033[94m'     # Blue
-    INFO: str = '\033[92m'      # Green
-    WARNING: str = '\033[93m'   # Yellow
-    ERROR: str = '\033[91m'     # Red
-    CRITICAL: str = '\033[95m'  # Purple
-    RESET: str = '\033[0m'
-    TIME: str = '\033[96m'      # Cyan
-    MODULE: str = '\033[97m'    # White
+    DEBUG: str = "\033[94m"  # Blue
+    INFO: str = "\033[92m"  # Green
+    WARNING: str = "\033[93m"  # Yellow
+    ERROR: str = "\033[91m"  # Red
+    CRITICAL: str = "\033[95m"  # Purple
+    RESET: str = "\033[0m"
+    TIME: str = "\033[96m"  # Cyan
+    MODULE: str = "\033[97m"  # White
+
 
 class ColoredFormatter(logging.Formatter):
     def __init__(self, fmt: Optional[str] = None, datefmt: Optional[str] = None):
@@ -29,6 +31,7 @@ class ColoredFormatter(logging.Formatter):
         formatter = logging.Formatter(log_fmt, datefmt="%Y-%m-%d %H:%M:%S")
         return formatter.format(record)
 
+
 def create_logging_config() -> Dict:
     """Create a standardized logging configuration."""
     return {
@@ -37,11 +40,11 @@ def create_logging_config() -> Dict:
         "formatters": {
             "default": {
                 "format": "[%(asctime)s] %(levelname)s in %(module)s: %(message)s",
-                "datefmt": "%Y-%m-%d %H:%M:%S"
+                "datefmt": "%Y-%m-%d %H:%M:%S",
             },
             "detailed": {
                 "format": "[%(asctime)s] %(levelname)s [%(name)s] [%(filename)s: %(lineno)d] - %(message)s",
-                "datefmt": "%Y-%m-%d %H:%M:%S"
+                "datefmt": "%Y-%m-%d %H:%M:%S",
             },
         },
         "handlers": {
@@ -57,11 +60,9 @@ def create_logging_config() -> Dict:
                 "mode": "a",
             },
         },
-        "root": {
-            "level": "DEBUG",
-            "handlers": ["console", "file"]
-        },
+        "root": {"level": "DEBUG", "handlers": ["console", "file"]},
     }
+
 
 def setup_logging() -> None:
     """Set up logging with colored console output."""
@@ -72,10 +73,11 @@ def setup_logging() -> None:
         if isinstance(handler, logging.StreamHandler):
             handler.setFormatter(ColoredFormatter())
 
+
 # Automatically set up logging when module is imported
 setup_logging()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     logging.debug("This is a debug message.")
     logging.info("This is an informational message.")
     logging.warning("This is a warning message.")

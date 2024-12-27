@@ -36,7 +36,7 @@ class SessionManager:
         self.login_url = link_to_login
         self.logout_url: LiteralString = LOGOUT_URL
         self.session: Optional[ClientSession] = None
-        self.auth = BasicAuth(login, password)
+        self.auth = BasicAuth(login=login, password=password)
         self.status = False
         self.payload: dict[str, str] = {"login": login, "pwd": password}
         self.last_response: Optional[ClientResponse] = None
@@ -77,14 +77,14 @@ class SessionManager:
         """
         try:
             if await self.is_authenticated():
-                logging.info("Login successful.")
+                logging.info(msg="Login successful.")
                 self.status = True
                 return True
             else:
-                logging.error("Login failed: Invalid credentials.")
+                logging.error(msg="Login failed: Invalid credentials.")
                 return False
         except ClientError as e:
-            logging.error(f"Login failed due to client error: {e}")
+            logging.error(msg=f"Login failed due to client error: {e}")
             return False
 
     async def ensure_authenticated(self) -> bool:
@@ -94,7 +94,7 @@ class SessionManager:
         :return: True if authentication is successful, otherwise False.
         """
         if not await self.is_authenticated():
-            logging.info("Re-authenticating...")
+            logging.info(msg="Re-authenticating...")
             return await self.login()
         return True
 
@@ -147,5 +147,5 @@ async def is_teacher(session: ClientSession) -> bool:
             return not (error_span and error_span.text.strip() == 'Нет доступа к Личному кабинету преподавателя!')
     
     except Exception as e:
-        logging.error(f"Teacher verification error: {e}")
+        logging.error(msg=f"Teacher verification error: {e}")
         return False
