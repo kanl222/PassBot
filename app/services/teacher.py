@@ -35,8 +35,7 @@ class TeacherDataProcessor:
             Dictionary of students keyed by full name.
         """
         result = await db_session.execute(
-            select(Student)
-            .filter_by(Student.group_id is None)
+            select(Student).filter_by(group_id = None)
         )
         return {user.full_name: user for user in result.scalars()}
 
@@ -63,11 +62,10 @@ class TeacherDataProcessor:
         """
         _group = Group(
             id_curator=user.id,
-            id_group=group['id'],
+            _id_group=group['id'],
             name=group['name']
         )
-        db_session.add(_group)
-        response:ClientResponse | None = await sm.get(link_to_activity.format(group=group['id_group']))
+        response:ClientResponse | None = await sm.session.get(link_to_activity.format(id_group=group['id']))
         students_data: List[Dict[str, Any]] = await StudentParser.parse_students_list( await response.text()
         )
 
@@ -87,13 +85,13 @@ class TeacherDataProcessor:
                     id_stud=student_data["id_stud"],
                     kodstud=student_data["kodstud"],
                     full_name=student_data["full_name"],
-                    role=student_data["role"],
+                    role=UserRole.STUDENT,
                     group_id=_group.id
                 )
 
-            db_session.add(student)
+            db_session.add(instance=student)
             processed_students.append(student)
-
+        db_session.add(instance=_group)
         return processed_students
 
     @with_session
@@ -102,15 +100,12 @@ class TeacherDataProcessor:
         Efficiently process and store teacher's group and student data.
         """
         user: User | None = await get_user_instance(telegram_id=self.id_telegram)
-        if not user or user.role != UserRole.TEACHER:
-            raise ValueError("User is not a teacher or does not exist.")
-
         existing_students: Dict[str, User] = await self._get_existing_students(db_session)
 
         async with SessionManager(self.login, self.password) as sm:
             try:
-                response: ClientResponse | None = await sm.get(link_teacher_supervision)
-                groups = await GroupParser.parse_groups(await response.text())
+                response: ClientResponse | None = await sm.session.get(link_teacher_supervision)
+                groups =  GroupParser.parse_groups(await response.text())
 
                 group_processing_tasks: List[asyncio.Coroutine[Any, Any, List[Student]]] = [
                     self._process_group_students(sm, group, user, db_session, existing_students)
@@ -138,7 +133,6 @@ async def first_parser_data(telegram_id) -> Dict[str, int]:
     """
     print(telegram_id)
     auth_payloud = await get_teacher(telegram_id=telegram_id)
-    print(auth_payloud)
     processor =  TeacherDataProcessor(auth_payloud=auth_payloud.get_encrypted_data(),id_telegram=telegram_id)
-    logging.info(auth_payloud)
+    logging.info(msg=auth_payloud)
     return await processor.process_teacher_data()

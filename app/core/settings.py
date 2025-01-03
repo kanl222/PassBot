@@ -39,18 +39,15 @@ class Settings:
             FileNotFoundError: If specified .env file does not exist.
             ValueError: If required configuration is missing.
         """
-        # Default to project root .env if not specified
         if env_file_path is None:
             env_file_path = Path(__file__).parent.parent / ".env"
 
-        # Load environment variables
         if env_file_path.exists():
             logging.info(f"Loading environment variables from {env_file_path}")
             load_dotenv(dotenv_path=env_file_path)
         else:
             logging.warning(f"No .env file found at {env_file_path}")
 
-        # Create settings instance
         settings: Self = cls(
             secret_key=os.getenv("SECRET_KEY", ""),
             algorithm=os.getenv("ALGORITHM", "HS256"),
@@ -87,7 +84,6 @@ class Settings:
             raise ValueError("PostgreSQL configuration is incomplete.")
 
     def get_database_url(self) -> str:
-        """Generate database connection URL."""
         if self.is_postgresql:
             return (
                 f"postgresql+asyncpg://"

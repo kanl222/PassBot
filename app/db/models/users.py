@@ -32,7 +32,7 @@ class User(SqlAlchemyBase):
     telegram_id: MappedColumn[str] = mapped_column(
         String(50),
         unique=True,
-        nullable=False
+        nullable=True
     )
 
     _encrypted_data_user: MappedColumn[str] = mapped_column(
@@ -49,7 +49,7 @@ class User(SqlAlchemyBase):
         try:
             self._encrypted_data_user = crypto.encrypt(user_data)
         except Exception as e:
-            raise ValueError(f"Data encryption error: {e}")
+            raise ValueError(f"Data encryption error: {e}") from e
 
     def get_encrypted_data(self) -> Dict[str, Any]:
         if not self._encrypted_data_user:
@@ -58,7 +58,7 @@ class User(SqlAlchemyBase):
         try:
             return crypto.decrypt(self._encrypted_data_user)
         except Exception as e:
-            raise ValueError(f"Decryption error: {e}")
+            raise ValueError(f"Decryption error: {e}") from e
 
     def __repr__(self) -> str:
         return f"<User(id={self.id}, full_name={self.full_name}, role={self.role})>"

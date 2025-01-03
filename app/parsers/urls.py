@@ -26,7 +26,7 @@ link_to_list_group_students = (
     f"{BASE_PREPOD_URL}?page=students&amp;group={{id_group}}"  # Student group page
 )
 link_to_activity = (
-    f"{BASE_PREPOD_URL}?page=supervision&amp;view=visits&amp;group={{id_group}}"  # Activity tracking page
+    f"{BASE_PREPOD_URL}?view=visits&page=supervision&group={{id_group}}"  # Activity tracking page
 )
 link_to_activity_is_time = (
     f'https://www.osu.ru/iss/prepod/lk.php?view=visits&page=supervision&group={{id_group}}&section_period_visits=user_mode&dts={{stdt}}&dte={{endt}}'
