@@ -20,6 +20,7 @@ class StudentParser(HTMLParser):
             List of student dictionaries.
         """
         try:
+            
             soup = BeautifulSoup(html_content, 'lxml')
             table: Tag | NavigableString | None = soup.find('table', {"class": "table-visits"})
             

@@ -18,10 +18,10 @@ from app.db.models.users import Student, User, UserRole
 from app.db.models.groups import Group
 
 class TeacherDataProcessor:
-    def __init__(self, auth_payloud: Dict[str,str],id_telegram) -> None: 
-        self.login = auth_payloud['login']
-        self.password = auth_payloud['password']
-        self.id_telegram = id_telegram
+    def __init__(self, auth_payload: Dict[str,str],id_telegram: int) -> None: 
+        self.login: str = auth_payload['login']
+        self.password: str = auth_payload['password']
+        self.id_telegram: int = id_telegram
 
     @lru_cache(maxsize=1000)
     async def _get_existing_students(self, db_session: AsyncSession) -> Dict[str, User]:
@@ -37,11 +37,30 @@ class TeacherDataProcessor:
         result = await db_session.execute(
             select(Student).filter_by(group_id = None)
         )
+        
         return {user.full_name: user for user in result.scalars()}
 
+    @lru_cache(maxsize=1000)
+    async def _get_existing_groups(self, db_session: AsyncSession) -> Dict[str, User]:
+        """
+        Bulk fetch existing students to reduce database queries.
+        
+        Args:
+            db_session: Database session for querying.
+        
+        Returns:
+            Dictionary of students keyed by full name.
+        """
+        result = await db_session.execute(
+            select(Group)
+        )
+        
+        return {group._id_group: group for group in result.scalars()}
+
+    
     async def _process_group_students(
         self, 
-        sm, 
+        sm: SessionManager, 
         group: Dict, 
         user: User, 
         db_session: AsyncSession, 
@@ -71,9 +90,7 @@ class TeacherDataProcessor:
 
         processed_students = []
         for student_data in students_data:
-            if existing_student := existing_students.get(
-                student_data["full_name"]
-            ):
+            if existing_student := existing_students.get(student_data["full_name"]):
                 student = Student(
                     id=existing_student.id,
                     id_stud=student_data["id_stud"],
@@ -127,7 +144,7 @@ class TeacherDataProcessor:
                 await db_session.rollback()
                 raise
 
-async def first_parser_data(telegram_id) -> Dict[str, int]:
+async def first_parser_data(telegram_id: int) -> Dict[str, int]:
     """
     Wrapper function for teacher data processing with improved performance.
     """

@@ -29,7 +29,7 @@ link_to_activity = (
     f"{BASE_PREPOD_URL}?view=visits&page=supervision&group={{id_group}}"  # Activity tracking page
 )
 link_to_activity_is_time = (
-    f'https://www.osu.ru/iss/prepod/lk.php?view=visits&page=supervision&group={{id_group}}&section_period_visits=user_mode&dts={{stdt}}&dte={{endt}}'
+    f'{BASE_PREPOD_URL}?view=visits&page=supervision&group={{id_group}}&section_period_visits=user_mode&dts={{stdt}}&dte={{endt}}'
 )
 
 # List of exported URLs

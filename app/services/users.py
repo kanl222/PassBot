@@ -44,7 +44,6 @@ class UniversalQueryService:
 
                 result = await db_session.execute(query)
                 entities = result.scalars().all()
-
                 return entities[0] if len(entities) == 1 and entities else entities
 
         except Exception as e:
