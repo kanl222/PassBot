@@ -1,91 +1,141 @@
+import datetime
+from html.parser import HTMLParser
 from typing import Any, List, Dict, Optional
-from aiohttp import ClientResponse
+from urllib.parse import ParseResult, parse_qs, urlparse
 from bs4 import BeautifulSoup, Tag
 
 
-class AttendanceParser:
+
+
+class AttendanceParser(HTMLParser):
+    @staticmethod
+    def parse_query_param(url: str, param: str) -> Optional[str]:
+        """Parse a specific query parameter from a URL."""
+        return parse_qs(urlparse(url).query).get(param, [None])[0]
+    
     @staticmethod
     def _extract_status_from_class(class_names: tuple) -> str:
         """
-        Efficiently map CSS classes to attendance status.
-        
+        Map CSS classes to attendance status.
+
         Args:
-            class_names: Tuple of CSS class names
-        
+            class_names: Tuple of CSS class names.
+
         Returns:
-            Attendance status string
+            Attendance status string.
         """
-        class_mapping = {
-            'cl-gray': 'absent',
+        class_mapping: Dict[str, str] = {
             'cl-grn': 'present',
+            'cl-gray': 'absent',
             'cl-or': 'late',
             'cl-red': 'violation',
             'cl-wh': 'unknown',
         }
-        
-        return next(
-            (class_mapping[cls] for cls in class_names if cls in class_mapping),
-            'unknown'
-        )
+        return next((class_mapping[cls] for cls in class_names if cls in class_mapping), 'unknown')
 
     @classmethod
-    def _parse_multiline_rows_state(cls, multiline_div) -> List[Dict[str, str]]:
-        """Parse nested attendance details in multiline rows."""
+    def _parse_multiline_rows(cls, multiline_div: Tag) -> str:
+        """
+        Parse nested attendance details in multiline rows.
+
+        Args:
+            multiline_div: BeautifulSoup object of multiline rows container.
+
+        Returns:
+            Aggregated attendance status as a string.
+        """
+        for row in multiline_div.find_all('div', class_='multiline-rows-state'):
+            status_ = [
+                cls._extract_status_from_class(tuple(row_.get('class', [])))
+                for row_ in row.find_all('div', class_='block-visit')
+            ]
+            if 'present' in status_:
+                return 'present'
+            elif 'violation' in status_:
+                return 'violation'
+        return 'absent'
+    
+    @classmethod
+    def _parse_single_cell(cls, cell) -> List[Dict[str, str]]:
+        """
+        Parse a single attendance cell.
+
+        Args:
+            cell: BeautifulSoup object of the cell.
+
+        Returns:
+            List of dictionaries with parsed status and details.
+        """
+        user_link = cell.find('a', href=True)[
+            'href'] if cell.find('a', href=True) else None
+
+        kodstud = cls.parse_query_param(user_link, 'kodstud') if user_link else None
+        
         return [
             {
-                'status': cls._extract_status_from_class(tuple(row.get('class', []))),
-                'details': row.get('title', '').strip()
+                'kodstud': kodstud,
+                'status': 
+                    cls._parse_multiline_rows(td)
+                    if td.find('div', class_='multi_visit_container')
+                    else cls._extract_status_from_class(
+                        tuple(
+                            td.find('div', class_='block-visit').get('class', [])
+                        )
+                        if td.find('div', class_='block-visit')
+                        else ()
+                    
+                ),
+                'details': (
+                    td.find('div', class_='multiline-rows-state')
+                    .get('title', '')
+                    .strip()
+                    .split('\n')[-1]
+                    if td.find('div', class_='multi_visit_container')
+                    else td.get('title', '').strip().split('\n')[-1]
+                ),
             }
-            for row in multiline_div.findall(".//div[@class='multiline-rows-state']")
+            for td in cell.find_all('td')[2:]
         ]
 
     @classmethod
-    def _parse_single_cell(cls, cell) -> List[Dict[str, str]]:
-        """Parse a single attendance cell."""
-        multiline_container = cell.find(".//div[@class='multi_visit_container']")
-        
-        if multiline_container is not None:
-            return cls._parse_multiline_rows_state(multiline_container)
-        
-        return [{
-            'status': cls._extract_status_from_class(tuple(cell.get('class', []))),
-            'details': cell.get('title', '').strip().split('\n')[-1]
-        }]
-
-    @classmethod
-    async def parse_attendance(cls, html_content:str) -> List[Dict[str, Any]]:
+    async def parse_attendance(cls, html_content: str) -> List[Dict[str, Any]]:
         """
-        Parse attendance information from HTML content asynchronously.
-
-        Args:
-            html_content: HTML string containing attendance table.
+        Parse the attendance table from the HTML.
 
         Returns:
-            List of dictionaries with student attendance data.
+            Parsed table as a list of dictionaries.
         """
-        soup = BeautifulSoup(html_content, 'lxml')
-        table = soup.find('table', {"class": "table-visits"})
-
+        soup = BeautifulSoup(html_content, "lxml")
+        table = soup.select_one("table.table-visits")
         if not table:
-            raise ValueError("No attendance table found in HTML")
+            raise ValueError(
+                "No table with class 'table-visits' found in the HTML.")
 
-        attendance_data = []
-        rows = table.find_all('tr')[4:]  # Skip header rows
+        # Parse header rows
+        header_rows = table.select("tr.thead")
+        header_data = []
+        for row in header_rows:
+            cells = row.select("td:not([rowspan])")
+            row_data = []
+            for cell in cells:
+                text = cell.get_text(strip=True)
+                colspan = int(cell.get('colspan', 1))
+                row_data.extend([text] * colspan)
+            header_data.append(row_data)
 
-        for row in rows:
-            cells = row.find_all('td')
-            if len(cells) <= 2:
-                continue
+        rows: List[List[Dict[str, str] | str]] = [
+            [''] + cls._parse_single_cell(tr)
+            for tr in table.select("tr")[4:]
+        ]
 
-            student_name = cells[1].get_text(strip=True)
-
-            classes = []
-            for cell in cells[3:]:
-                classes.extend(cls._parse_single_cell(cell))  # Flatten the structure
-
-            attendance_data.append({
-                'name': student_name,
-                'attendance': classes
-            })
-
-        return attendance_data
+        header_data.extend(rows)
+        res: List[List[Any]] = [list(column) for column in zip(*header_data)]
+        header: List[str] = ['date', 'pair_number', 'discipline']
+        data: List[Dict[str, Any]] =  [
+            dict(zip(header, i[:len(header)]), **item)
+            for i in res[1:]
+            for item in i[len(header) + 2:]
+        ]
+        for item in data:
+            item['date'] = datetime.datetime.strptime(item['date'].split(',')[0], "%d.%m.%Y").date()
+        return data

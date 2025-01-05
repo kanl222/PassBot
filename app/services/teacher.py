@@ -40,23 +40,6 @@ class TeacherDataProcessor:
         
         return {user.full_name: user for user in result.scalars()}
 
-    @lru_cache(maxsize=1000)
-    async def _get_existing_groups(self, db_session: AsyncSession) -> Dict[str, User]:
-        """
-        Bulk fetch existing students to reduce database queries.
-        
-        Args:
-            db_session: Database session for querying.
-        
-        Returns:
-            Dictionary of students keyed by full name.
-        """
-        result = await db_session.execute(
-            select(Group)
-        )
-        
-        return {group._id_group: group for group in result.scalars()}
-
     
     async def _process_group_students(
         self, 
@@ -149,7 +132,7 @@ async def first_parser_data(telegram_id: int) -> Dict[str, int]:
     Wrapper function for teacher data processing with improved performance.
     """
     print(telegram_id)
-    auth_payloud = await get_teacher(telegram_id=telegram_id)
-    processor =  TeacherDataProcessor(auth_payloud=auth_payloud.get_encrypted_data(),id_telegram=telegram_id)
-    logging.info(msg=auth_payloud)
+    auth_payload = await get_teacher(telegram_id=telegram_id)
+    processor =  TeacherDataProcessor(auth_payload=auth_payload.get_encrypted_data(),id_telegram=telegram_id)
+    logging.info(msg=auth_payload)
     return await processor.process_teacher_data()
