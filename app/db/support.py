@@ -38,7 +38,6 @@ async def create_database_async(url: str, encoding: str = "utf8", template: Opti
     else:
         engine = create_async_engine(url)
 
-    # Handle database creation for different dialects
     try:
         if dialect_name == "postgresql":
             if not template:
@@ -54,12 +53,10 @@ async def create_database_async(url: str, encoding: str = "utf8", template: Opti
                 await conn.execute(sa.text(text))
 
         elif dialect_name == "sqlite" and database != ":memory:":
-            if database:
-                # SQLite will create the database file automatically if it doesn't exist
-                if not _sqlite_file_exists(url):
-                    async with engine.begin() as conn:
-                        await conn.execute(sa.text("CREATE TABLE DB(id int)"))
-                        await conn.execute(sa.text("DROP TABLE DB"))
+            if database and not _sqlite_file_exists(url):
+                async with engine.begin() as conn:
+                    await conn.execute(sa.text("CREATE TABLE DB(id int)"))
+                    await conn.execute(sa.text("DROP TABLE DB"))
 
         else:
             async with engine.begin() as conn:

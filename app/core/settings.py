@@ -6,6 +6,8 @@ from typing import Optional
 
 from dotenv import load_dotenv
 
+TEST_MODE = True
+ID_ADMIN=''
 ENV_FILE_PATH: Path = Path(os.path.dirname(os.path.abspath(__file__))) / ".." / ".env"
 IS_POSTGRESQL = False
 @dataclass

@@ -2,12 +2,12 @@ from typing import List, Dict, Optional
 from bs4 import BeautifulSoup, NavigableString, Tag
 import json
 import logging
-from .support import HTMLParser
+from .html_parser import HTMLParser
 
 
 class GroupParser(HTMLParser):
     @classmethod
-    def parse_groups(cls, html_content: str) -> List[Dict[str, str]]:
+    async def parse_groups(cls, html_content: str) -> List[Dict[str, str]]:
         """
         Parse group information from HTML content.
         
@@ -18,7 +18,7 @@ class GroupParser(HTMLParser):
             List of dictionaries with group details.
         """
         try:
-            soup = BeautifulSoup(html_content, 'lxml')
+            soup = await cls.get_soup(html_content)
             table: Tag | NavigableString | None = soup.find('table')
             
             if not table:

@@ -4,7 +4,7 @@ from aiohttp import ClientResponse
 import logging
 
 from app.db.models.users import UserRole
-from .support import HTMLParser
+from .html_parser import HTMLParser
 
 
 
@@ -24,7 +24,7 @@ class TeacherParser(HTMLParser):
             ValueError: If critical teacher information cannot be parsed.
         """
         try:
-            soup = BeautifulSoup(html_content, 'lxml')
+            soup = await cls.get_soup(html_content)
             title_info: Tag | NavigableString | None = soup.find(
                 "div", id="title_info")
 

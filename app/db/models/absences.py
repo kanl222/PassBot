@@ -3,7 +3,6 @@ from enum import Enum, auto
 from typing import Optional
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Index
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from sqlalchemy.ext.declarative import declarative_base
 from ..db_session import SqlAlchemyBase
 
 
@@ -14,43 +13,39 @@ class AttendanceStatus(Enum):
     EXCUSED = auto()
     NOT_CONFIRMED = auto()
 
+
 class Visiting(SqlAlchemyBase):
-    __tablename__ = 'visiting'
+    __tablename__ = "visiting"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        __name_pos=Integer, primary_key=True, autoincrement=True
+    )
     student_id: Mapped[int] = mapped_column(
-        Integer, 
-        ForeignKey('students.id', ondelete='CASCADE'), 
-        nullable=False, 
-        index=True
+        __name_pos=Integer,
+        __type_pos=ForeignKey(column="students.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
+    pair_id: Mapped[int] = mapped_column(
+        Integer,
+        ForeignKey(column="pairs.id"),
+        nullable=False,
+        index=True,
+    )
+    status: Mapped[AttendanceStatus] = mapped_column(nullable=False)
 
-    date: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True), 
-        default=datetime.datetime.utcnow, 
-        nullable=False, 
-        index=True
-    )
-    status: Mapped[AttendanceStatus] = mapped_column(
-        nullable=False
-    )
     message: Mapped[Optional[str]] = mapped_column(
-        String(255),
-        nullable=True
-        )
+        __name_pos=String(length=255), nullable=True
+    )
 
-    student = relationship("Student", back_populates="visits")
+    student: Mapped["Student"] = relationship(
+        argument="Student", back_populates="visits"
+    )
+    pair: Mapped["Pair"] = relationship(argument="Pair", back_populates="visits")
 
-
-
-    __table_args__ = (
-        Index('idx_student_date', student_id, date),
+    __table_args__: tuple[Index] = (
+        Index("idx_student_pair", "student_id", "pair_id", unique=True),
     )
 
     def __repr__(self) -> str:
-        return (
-            f"<Visiting("
-            f"student_id={self.student_id}, "
-            f"status={self.status}, "
-            f"date={self.date})>"
-        )
+        return f"<Visiting(student_id={self.student_id}, pair_id={self.pair_id}, status={self.status})>"

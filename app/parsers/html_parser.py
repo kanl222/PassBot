@@ -1,6 +1,7 @@
 from typing import Optional
 from urllib.parse import ParseResult, urlparse, parse_qs
-from bs4 import Tag
+from bs4 import BeautifulSoup, Tag
+import bs4
 
 class HTMLParser:
     @staticmethod
@@ -13,3 +14,8 @@ class HTMLParser:
         """Parse a specific query parameter from a URL."""
         parsed_url: ParseResult = urlparse(url)
         return parse_qs(parsed_url.query).get(param, [None])[0]
+    
+    @classmethod
+    def get_soup(cls, html_content: str, parser: str = "html.parser") -> BeautifulSoup:  # Added parser argument
+        """Create a BeautifulSoup object with the specified parser."""
+        return BeautifulSoup(html_content, parser)

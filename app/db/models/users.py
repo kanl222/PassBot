@@ -16,34 +16,20 @@ class UserRole(PyEnum):
 
 class User(SqlAlchemyBase):
     """Base user model with efficient encryption methods."""
-    __tablename__: str = 'users'
 
-    id: Mapped[int] = mapped_column(
-        Integer,
-        primary_key=True,
-        autoincrement=True
-    )
+    __tablename__: str = "users"
 
-    full_name: MappedColumn[str] = mapped_column(
-        String(255),
-        nullable=False
-    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
+    full_name: MappedColumn[str] = mapped_column(String(255), nullable=False)
 
     telegram_id: MappedColumn[str] = mapped_column(
-        String(50),
-        unique=True,
-        nullable=True
+        String(50), unique=True, nullable=True
     )
 
-    _encrypted_data_user: MappedColumn[str] = mapped_column(
-        String(500),
-        nullable=True
-    )
+    _encrypted_data_user: MappedColumn[str] = mapped_column(String(500), nullable=True)
 
-    role: MappedColumn[UserRole] = mapped_column(
-        Enum(UserRole),
-        nullable=False
-    )
+    role: MappedColumn[UserRole] = mapped_column(Enum(UserRole), nullable=False)
 
     def set_encrypted_data(self, user_data: Dict[str, str]) -> None:
         try:
@@ -63,52 +49,37 @@ class User(SqlAlchemyBase):
     def __repr__(self) -> str:
         return f"<User(id={self.id}, full_name={self.full_name}, role={self.role})>"
 
+
 from .groups import Group
+
 
 class Student(User):
     """Student-specific user model with optimized relationships."""
-    __tablename__ = 'students'
 
-    id: Mapped[int] = mapped_column(
-        ForeignKey('users.id'),
-        primary_key=True
-    )
+    __tablename__ = "students"
 
-    kodstud: Mapped[Optional[int]] = mapped_column(
-        Integer,
-        nullable=True
-    )
+    id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
 
-    id_stud: Mapped[Optional[int]] = mapped_column(
-        Integer,
-        nullable=True
-    )
+    kodstud: Mapped[Optional[int]] = mapped_column(Integer,unique=True, nullable=True)
+
+    id_stud: Mapped[Optional[int]] = mapped_column(Integer,unique=True, nullable=True)
 
     group_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey('groups.id'),
-        nullable=True,
-        index=True
+        ForeignKey("groups.id"), nullable=True, index=True
     )
 
     group = relationship(
-        Group, 
-        back_populates="students", 
-        foreign_keys=[group_id],
-        lazy='selectin'
+        Group, back_populates="students", foreign_keys=[group_id], lazy="selectin"
     )
-    
+
     visits = relationship(
-        "Visiting", 
+        "Visiting",
         back_populates="student",
         foreign_keys="[Visiting.student_id]",
-        lazy='selectin'
+        lazy="selectin",
     )
 
-
-
-    __mapper_args__: Dict[str, UserRole] = {
-        "polymorphic_identity": UserRole.STUDENT
-    }
+    __mapper_args__: Dict[str, UserRole] = {"polymorphic_identity": UserRole.STUDENT}
 
     def __repr__(self) -> str:
         return f"<Student(id={self.id}, full_name={self.full_name}, group_id={self.group_id})>"
@@ -116,22 +87,14 @@ class Student(User):
 
 class Teacher(User):
     """Teacher-specific user model with efficient group relationships."""
-    __tablename__: str = 'teachers'
 
-    id: Mapped[int] = mapped_column(
-        ForeignKey('users.id'),
-        primary_key=True
-    )
+    __tablename__: str = "teachers"
 
-    curated_groups = relationship(
-        Group,
-        back_populates="curator",
-        lazy='selectin'
-    )
+    id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
 
-    __mapper_args__: Dict[str, UserRole] = {
-        "polymorphic_identity": UserRole.TEACHER
-    }
+    curated_groups = relationship(Group, back_populates="curator", lazy="selectin")
+
+    __mapper_args__: Dict[str, UserRole] = {"polymorphic_identity": UserRole.TEACHER}
 
     def __repr__(self) -> str:
         return f"<Teacher(id={self.id}, full_name={self.full_name})>"

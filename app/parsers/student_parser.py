@@ -3,7 +3,7 @@ from urllib.parse import ParseResult, urlparse, parse_qs
 from bs4 import BeautifulSoup, NavigableString, Tag
 from aiohttp import ClientResponse
 import logging
-from .support import HTMLParser
+from .html_parser import HTMLParser
 from app.db.models.users import UserRole
 
 
@@ -21,7 +21,7 @@ class StudentParser(HTMLParser):
         """
         try:
             
-            soup = BeautifulSoup(html_content, 'lxml')
+            soup = await cls.get_soup(html_content)
             table: Tag | NavigableString | None = soup.find('table', {"class": "table-visits"})
             
             if not table:
@@ -70,7 +70,7 @@ class StudentParser(HTMLParser):
             ValueError: If critical student information cannot be parsed.
         """
         try:
-            soup = BeautifulSoup(html_content, 'lxml')
+            soup = await cls.get_soup(html_content)
             table_info: Tag | NavigableString | None = soup.find("div", id="title_info")
 
             if not table_info:

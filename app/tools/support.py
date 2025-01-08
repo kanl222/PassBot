@@ -8,6 +8,8 @@ from functools import wraps
 from typing import Callable, Any
 import logging
 
+from app.core.settings import TEST_MODE
+
 
 def timeit(func: Callable[..., Any]):
     @wraps(func)
@@ -26,7 +28,7 @@ def log_html(func,log_dir='html_logs', prefix='log'):
     @wraps(func)
     async def async_wrapper(*args, **kwargs):
         html_content = args[1]
-        if html_content:
+        if html_content and TEST_MODE:
             try:
                 os.makedirs(f'{log_dir}/{func.__name__}', exist_ok=True)
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -39,3 +41,8 @@ def log_html(func,log_dir='html_logs', prefix='log'):
         return await func(*args, **kwargs)
 
     return async_wrapper
+
+
+def import_html_log():
+    with open("html_logs\parse_attendance\Личный кабинет преподавателя – Посещение занятий студентами (Галимов Ринат Равилевич).html", "r", encoding='windows-1251') as file:
+        return file.read()
