@@ -2,6 +2,7 @@ from functools import wraps
 from functools import wraps
 import logging
 from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List
 from aiogram import types, Router
 from aiogram.filters import Command
 from app.db.db_session import with_session
@@ -84,6 +85,7 @@ async def list_absences(message: types.Message) -> None:
     """List student absences."""
     id_telegram: int = message.from_user.id
     students = await DataParsingService._fetch_students([])
+    absences = "\n".join([f"{student['name']}: 1 пропуск" for student in students])
     absences = "\n".join([f"{student['name']}: 1 пропуск" for student in students])
     await message.reply(f"Пропуски студентов:\n{absences}")
 
