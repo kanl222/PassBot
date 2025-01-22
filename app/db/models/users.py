@@ -1,6 +1,7 @@
 from ast import List
+from functools import lru_cache
 from typing import Dict, Any, Optional
-from sqlalchemy import Column, Integer, String, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, ForeignKey, Enum,Boolean
 from sqlalchemy.orm import relationship, Mapped, mapped_column, declarative_base
 from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm.properties import MappedColumn
@@ -12,6 +13,8 @@ from ..db_session import SqlAlchemyBase
 class UserRole(PyEnum):
     STUDENT = auto()
     TEACHER = auto()
+    GUEST = auto()
+
 
 
 class User(SqlAlchemyBase):
@@ -21,31 +24,24 @@ class User(SqlAlchemyBase):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    full_name: MappedColumn[str] = mapped_column(String(255), nullable=False)
+    full_name: MappedColumn[str] = mapped_column(String(255), nullable=False,index=True)
 
     telegram_id: MappedColumn[str] = mapped_column(
-        String(50), unique=True, nullable=True
+        String(50), unique=True, nullable=True,index=True
     )
 
     _encrypted_data_user: MappedColumn[str] = mapped_column(String(500), nullable=True)
 
     role: MappedColumn[UserRole] = mapped_column(Enum(UserRole), nullable=False)
 
-    def set_encrypted_data(self, user_data: Dict[str, str]) -> None:
-        try:
-            self._encrypted_data_user = crypto.encrypt(user_data)
-        except Exception as e:
-            raise ValueError(f"Data encryption error: {e}") from e
+    def set_encrypted_data(self, user_data: Dict[str, Any]) -> None:
+        self._encrypted_data_user = crypto.encrypt(user_data)
 
     def get_encrypted_data(self) -> Dict[str, Any]:
         if not self._encrypted_data_user:
-            raise ValueError("No encrypted data available.")
-
-        try:
-            return crypto.decrypt(self._encrypted_data_user)
-        except Exception as e:
-            raise ValueError(f"Decryption error: {e}") from e
-
+            return {}  
+        return crypto.decrypt(self._encrypted_data_user)
+    
     def __repr__(self) -> str:
         return f"<User(id={self.id}, full_name={self.full_name}, role={self.role})>"
 
@@ -58,9 +54,9 @@ class Student(User):
 
     __tablename__ = "students"
 
-    id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
 
-    kodstud: Mapped[Optional[int]] = mapped_column(Integer,unique=True, nullable=True)
+    kodstud: Mapped[Optional[int]] = mapped_column(Integer,unique=True, nullable=True, index=True)
 
     id_stud: Mapped[Optional[int]] = mapped_column(Integer,unique=True, nullable=True)
 
@@ -90,9 +86,13 @@ class Teacher(User):
 
     __tablename__: str = "teachers"
 
-    id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
-
-    curated_groups = relationship(Group, back_populates="curator", lazy="selectin")
+    id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    is_data_parsed: Mapped[bool] = mapped_column(Boolean,default=False)
+    curated_groups = relationship(
+        Group,
+        back_populates="curator",
+        lazy="joined",
+        join_depth=2)
 
     __mapper_args__: Dict[str, UserRole] = {"polymorphic_identity": UserRole.TEACHER}
 

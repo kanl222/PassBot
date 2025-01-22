@@ -21,7 +21,7 @@ class StudentParser(HTMLParser):
         """
         try:
             
-            soup = await cls.get_soup(html_content)
+            soup =  cls.get_soup(html_content)
             table: Tag | NavigableString | None = soup.find('table', {"class": "table-visits"})
             
             if not table:
@@ -70,7 +70,7 @@ class StudentParser(HTMLParser):
             ValueError: If critical student information cannot be parsed.
         """
         try:
-            soup = await cls.get_soup(html_content)
+            soup =  cls.get_soup(html_content)
             table_info: Tag | NavigableString | None = soup.find("div", id="title_info")
 
             if not table_info:

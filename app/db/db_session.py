@@ -5,13 +5,15 @@ import traceback
 from typing import Any, AsyncIterator, Optional, Callable
 from functools import wraps
 
-from sqlalchemy import delete
+from sqlalchemy import NullPool, delete
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from app.core.settings import IS_POSTGRESQL
 from contextlib import asynccontextmanager
+
+from app.tools.support import timeit
 
 logging.basicConfig(level=logging.INFO)
 logger: logging.Logger = logging.getLogger(__name__)
@@ -27,7 +29,7 @@ class DatabaseSessionManager:
         self._session_factory: async_sessionmaker | None = None
 
     def initialize(
-        self, database_url: str, pool_size: int = 20, max_overflow: int = 80
+        self, database_url: str
     ) -> None:
         """
         Initialize the database connection and session factory.
@@ -52,7 +54,9 @@ class DatabaseSessionManager:
         try:
             self._engine = create_async_engine(
                 database_url,
+                connect_args={"timeout": 15}, 
                 echo=False,
+
             )
             self._session_factory = async_sessionmaker(
                 bind=self._engine, class_=AsyncSession, expire_on_commit=False
@@ -101,8 +105,7 @@ class DatabaseSessionManager:
                 await session.commit()
             except Exception as e:
                 await session.rollback()
-                logger.error(f"Session error: {e}")
-                traceback.print_exc()
+                logger.error(f"Session error: {e}", exc_info=True)
                 raise
             finally:
                 await session.close()
@@ -137,20 +140,19 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 
 def with_session(func: Callable):
     """Decorator to inject database session into function."""
-
     @wraps(func)
     async def wrapper(*args, **kwargs) -> Any:
         if "db_session" in kwargs and isinstance(kwargs["db_session"], AsyncSession):
             return await func(*args, **kwargs)
-        
-        async with get_session() as session:
+
+        async with get_session() as session:  # Always use a new session
             kwargs["db_session"] = session
             try:
                 return await func(*args, **kwargs)
+
             except Exception as e:
-                logging.error(f"Error in {func.__name__}: {e}")
+                logger.error(f"Error in {func.__name__}: {e}", exc_info=True)
                 raise
 
     return wrapper
-
 

@@ -12,3 +12,4 @@ __all_routes.include_routers(common_router,
                              student_router,
                              auth_router,
                              )
+

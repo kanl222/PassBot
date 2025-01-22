@@ -24,7 +24,7 @@ class TeacherParser(HTMLParser):
             ValueError: If critical teacher information cannot be parsed.
         """
         try:
-            soup = await cls.get_soup(html_content)
+            soup = cls.get_soup(html_content)
             title_info: Tag | NavigableString | None = soup.find(
                 "div", id="title_info")
 

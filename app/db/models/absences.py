@@ -1,5 +1,6 @@
 import datetime
 from enum import Enum, auto
+from functools import lru_cache
 from typing import Optional
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Index
 from sqlalchemy.orm import relationship, Mapped, mapped_column
@@ -10,8 +11,14 @@ class AttendanceStatus(Enum):
     PRESENT = auto()
     ABSENT = auto()
     LATE = auto()
+    VIOLATION = auto()
     EXCUSED = auto()
-    NOT_CONFIRMED = auto()
+    UNKNOWN= auto()
+
+@lru_cache(maxsize=128)
+def status_enum(status: str) -> AttendanceStatus:
+    """Cached AttendanceStatus conversion."""
+    return AttendanceStatus[status.upper()]
 
 
 class Visiting(SqlAlchemyBase):

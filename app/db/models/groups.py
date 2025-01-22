@@ -31,11 +31,21 @@ class Group(SqlAlchemyBase):
         argument="Student",
         back_populates="group",
         foreign_keys="Student.group_id",
-        lazy="selectin",
+        lazy="joined",
         cascade="save-update",
     )
 
-    pairs: Mapped[list["Pair"]] = relationship("Pair", secondary=group_pair_association, back_populates="groups") # type: ignore
+    pairs: Mapped[list["Pair"]] = relationship(
+        "Pair",
+        secondary=group_pair_association,
+        back_populates="groups",
+        lazy="joined",) # type: ignore
+    
+    attendance_logs = relationship(
+        "GroupAttendanceLog",
+        back_populates="group" ,
+        lazy="selectin",
+    )
 
 
     __table_args__ = (Index("idx_curator_group", id_curator, _id_group),)

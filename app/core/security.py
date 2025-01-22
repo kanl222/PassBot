@@ -8,10 +8,13 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import padding
 from cryptography.hazmat.primitives.ciphers.base import CipherContext
+import dotenv
 from .settings import ENV_FILE_PATH
+# The `@dataclass` decorator in Python is used to automatically generate special methods such as
+# `__init__`, `__repr__`, `__eq__`, and `__hash__` for a class based on its attributes.
 @dataclass
 class CryptoConfig:
-    key_length: int = 16 
+    key_length: int = 32 
     block_size: int = 16
 
 class SecretKeyManager:
@@ -22,7 +25,8 @@ class SecretKeyManager:
     def _load_or_generate_key(self) -> str:
         """Load existing secret key or generate a new one."""
         key: str | None = os.getenv('SECRET_KEY')
-        if not key:
+
+        if  key == 'None':
             key = self._generate_secret_key()
             self._save_secret_key(key)
         return key
@@ -34,8 +38,8 @@ class SecretKeyManager:
     def _save_secret_key(self, key: str) -> None:
         """Save the secret key to the environment file."""
         try:
-            with open(self.env_file_path, 'a+') as env_file:
-                env_file.write(f"\nSECRET_KEY={key}")
+            dotenv_file = dotenv.find_dotenv()
+            dotenv.set_key(dotenv_file, "SECRET_KEY", key)
             logging.info("New secret key saved to environment.")
         except Exception as e:
             logging.error(msg=f"Failed to save secret key: {e}")

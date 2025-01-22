@@ -1,9 +1,12 @@
+from contextlib import asynccontextmanager
 from functools import wraps
-from typing import Any, Awaitable, Callable, LiteralString, Optional, Self, Union
+from app.db.models.users import Teacher
+from app.tools.support import timeit
+from typing import Any, Awaitable, Callable, Dict, Generator, LiteralString, Optional, Self, Union
 import aiohttp
 import asyncio
 import logging
-from aiohttp import ClientError, ClientResponse, ClientSession, BasicAuth
+from aiohttp import ClientError, ClientResponse, ClientSession, BasicAuth, request
 from bs4 import BeautifulSoup, NavigableString, Tag
 from ..parsers.urls import (
     LOGOUT_URL,
@@ -16,7 +19,6 @@ from ..parsers.urls import (
 from app.tools.local_response_url import cached_url_response
 
 logging.basicConfig(level=logging.INFO)
-
 
 def handle_session_errors(
     func: Callable[..., Awaitable[Any]]
@@ -108,7 +110,8 @@ class SessionManager:
             logging.info(msg="Re-authenticating...")
             return await self.login()
         return True
-
+    
+    @timeit
     async def request(
         self, method: str, url: str, **kwargs
     ) -> Optional[ClientResponse]:
@@ -143,7 +146,7 @@ class SessionManager:
             logging.warning("Session not initialized.")
             return False
 
-        async with self.session.get(self.logout_url) as response:
+        async with await self.get(self.logout_url) as response:
             self.status: bool = False
             logging.info("Logout " + ("failed" if self.status else "successful"))
             return not self.status
@@ -161,7 +164,7 @@ async def is_teacher(session: ClientSession) -> bool:
             if response.status != 200:
                 return False
 
-            soup = BeautifulSoup(await response.text(), "lxml")
+            soup = BeautifulSoup(await response.text(), "html.parser")
             error_span: Tag | NavigableString | None = soup.find("span", class_="error")
 
             return not (
@@ -173,3 +176,39 @@ async def is_teacher(session: ClientSession) -> bool:
     except Exception as e:
         logging.error(msg=f"Teacher verification error: {e}")
         return False
+
+
+async def check_website_access() -> bool:
+    """Checks if the website is accessible."""
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(BASE_PREPOD_URL) as response:
+                return True
+    except ClientError:
+        return False
+
+
+def require_website_access(func: Callable[..., Awaitable[Any]]) -> Callable[..., Awaitable[Any]]:
+    """Decorator to ensure website access before executing a function."""
+
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        if await check_website_access():
+            return await func(*args, **kwargs)
+        logging.error(f"Website access check failed in {func.__name__}.")
+        raise ClientError("Website is not accessible.")
+
+    return wrapper
+
+
+
+@asynccontextmanager
+async def create_session(user) -> Generator[SessionManager, Any, None]: # type: ignore
+    """Context manager for session management."""
+    login_password: Dict[str, Any] = user.get_encrypted_data()
+    async with SessionManager(
+        login_password["login"], login_password["password"]
+    ) as sm:
+        yield sm
+        
+        

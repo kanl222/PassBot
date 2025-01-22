@@ -1,5 +1,6 @@
 import datetime
 from functools import lru_cache
+import re
 
 import pandas as pd
 from .html_parser import HTMLParser
@@ -25,35 +26,65 @@ class AttendanceParser(HTMLParser):
             Attendance status string.
         """
         class_mapping: Dict[str, str] = {
-            "cl-grn": "present",
-            "cl-gray": "absent",
-            "cl-or": "late",
-            "cl-red": "violation",
-            "cl-wh": "unknown",
+            'cl-grn': 'present',
+            'cl-gray': 'absent',
+            'cl-or': 'late',
+            'cl-red': 'violation',
+            'cl-wh': 'unknown',
+            'cl-yell': 'unknown',
+            'cl-bl':'violation',
+            'cl-dbl':'violation',
         }
+        return [*list(map(lambda key: class_mapping[key], class_names)), 'unknown']
+
+    @classmethod
+    def _handler_statues(cls, statuses: list) -> str:
         return next(
-            (class_mapping[cls] for cls in class_names if cls in class_mapping),
-            "unknown",
+            (
+                status
+                for status in ('present', 'violation', 'late', 'absent')
+                if status in set(statuses)
+            ),
+            'unknown',
         )
 
     @classmethod
     def _parse_multiline_rows(cls, multiline_div: Tag) -> str:
-        """Parse nested attendance details in multiline rows."""
-        for row in multiline_div.find_all(
-            "div", class_="multiline-rows-state"
-        ):  # More efficient selector
-            statuses = [
-                cls._extract_status_from_class(tuple(r.get("class", [])))
-                for r in row.find_all("div", class_="block-visit")
-            ]
-            if "present" in statuses:
-                return "present"
-            if "violation" in statuses:
-                return "violation"
-        return "absent"
+        """
+        Parse nested attendance details in multiline rows.
+
+        Args:
+            multiline_div: BeautifulSoup object of multiline rows container.
+
+        Returns:
+            Aggregated attendance status as a string.
+        """
+        statuses = []
+        status = None
+        for row in multiline_div.find_all('div', class_='multiline-rows-state'):
+            for row_ in row.find_all('div', class_='block-visit'):
+                statuses += [cls._handler_statues(
+                    cls._extract_status_from_class(tuple(row_.get('class', []))[1:]))]
+    
+        return cls._handler_statues(statuses)
 
     @classmethod
-    def _parse_single_cell(cls, cell) -> List[Dict[str, str]]:
+    def _parse_line_rows(cls, line_div: Tag) -> str:
+        """
+        Parse nested attendance details in multiline rows.
+
+        Args:
+            multiline_div: BeautifulSoup object of multiline rows container.
+
+        Returns:
+            Aggregated attendance status as a string.
+        """
+        statuses = [stat.get('class', [])[1]
+                    for stat in line_div.find_all('div', class_='block-visit')]
+        return cls._handler_statues(cls._extract_status_from_class(tuple(set(statuses))))
+
+    @classmethod
+    def _parse_single_cell(cls, cell,header_data) -> List[Dict[str, str]]:
         """
         Parse a single attendance cell.
 
@@ -63,47 +94,53 @@ class AttendanceParser(HTMLParser):
         Returns:
             List of dictionaries with parsed status and details.
         """
-        user_link = (
-            cell.find("a", href=True)["href"] if cell.find("a", href=True) else None
-        )
-        kodstud = cls.parse_query_param(user_link, "kodstud") if user_link else None
-
-        return [
-            {
-                "kodstud": int(kodstud),
-                "status": (
-                    cls._parse_multiline_rows(td)
-                    if td.find("div", class_="multi_visit_container")
-                    else cls._extract_status_from_class(
-                        tuple(td.find("div", class_="block-visit").get("class", []))
-                        if td.find("div", class_="block-visit")
-                        else ()
-                    )
-                ),
-                "details": (
-                    td.find("div", class_="multiline-rows-state")
-                    .get("title", "")
-                    .strip()
-                    .split("\n")[-1]
-                    if td.find("div", class_="multi_visit_container")
-                    else td.get("title", "").strip().split("\n")[-1]
-                ),
-            }
-            for td in cell.find_all("td")[2:]
-        ]
-
+        
+        user_link = cell.find('a', href=True)[
+            'href'] if cell.find('a', href=True) else None
+        cells = []
+        kodstud = cls.parse_query_param(
+            user_link, 'kodstud') if user_link else None
+        _cells = cell.find_all('td')[2:]
+        for row in range(len(_cells)):
+            td=  _cells[row]
+            date,pair_number,discipline,type_pair = header_data[row+1]
+            status = None
+            details = None
+            if td.find('div', class_='multi_visit_container'):
+                status = cls._parse_multiline_rows(td)
+                details = td.find(
+                    'div', class_='multiline-rows-state').get('title', '').strip().split('\n')[-1]
+            else:
+                status = cls._parse_line_rows(td)
+                details = td.get('title', '').strip().split('\n')[-1]
+            cells += [{
+                "date":date, "pair_number":pair_number, "discipline":discipline, "type_pair":type_pair,
+                'kodstud': int(kodstud),
+                'status': status,
+                'details': details
+            }]
+        return cells
+    
     @classmethod
-    async def parse_attendance(cls, html_content: str) -> pd.DataFrame:
+    @log_html
+    def parse_attendance(cls, html_content: str) -> List[Dict[str, Any]]:
         """
         Parse the attendance table from the HTML.
 
         Returns:
             Parsed table as a list of dictionaries.
         """
-        soup = cls.get_soup(html_content)
-        table = soup.select_one("table.table-visits")
+        soup = BeautifulSoup(html_content, "html.parser")
+        table = soup.find("table",class_="table-visits")
         if not table:
-            raise ValueError("No table with class 'table-visits' found in the HTML.")
+            raise ValueError(
+                "No table with class 'table-visits' found in the HTML.")
+
+        if table.find(
+            "td", rowspan="4", string="За указанный период пары отсутствуют!"
+        ):
+            logging.info("No pairs found for the specified period.")
+            return pd.DataFrame() 
 
         header_rows: ResultSet[Tag] = table.select("tr.thead")
         header_data = []
@@ -112,26 +149,20 @@ class AttendanceParser(HTMLParser):
             row_data = []
             for cell in cells:
                 text = cell.get_text(strip=True)
-                colspan = int(cell.get("colspan", 1))
-                row_data.extend([text] * colspan)
+
+
+                if match := re.match(r"(\d{2}\.\d{2}\.\d{4}), (\w{2})\.", text):
+                    colspan = int(cell.get("colspan", 1))
+                    date_obj = datetime.datetime.strptime(match[1], "%d.%m.%Y").date()
+                    row_data.extend([date_obj] * colspan)
+                else:
+                    row_data.append(text)
             header_data.append(row_data)
-        rows: List[List[Dict[str, str] | str]] = [
-            [None] + cls._parse_single_cell(tr) for tr in table.find_all("tr")[4:]
-        ]
-        header_data.extend(rows)
-        res: List[List[Any]] = list(zip(*header_data))
-        header: List[str] = ["date", "pair_number", "discipline", "type_pair"]
-        data: List[Dict[str, Any]] = [
-            dict(zip(header, i[:4]), **item)
-            for i in res[1:]
-            for item in i[len(header) + 2 :]
-        ]
-        for item in data:
-            try:
-                item["date"] = datetime.datetime.strptime(
-                    item["date"].split(",")[0], "%d.%m.%Y"
-                ).date()
-            except ValueError:
-                item["date"] = None  #
-                logging.warning(f"Invalid date format: {item['date']}")
-        return pd.DataFrame(data)
+        header_data = list(zip(*header_data))
+        data = []
+        for tr in table.find_all("tr")[4:]:
+            data.extend(cls._parse_single_cell(tr,header_data))
+        df = pd.DataFrame(data)
+        df["key_pair"] = pd.to_datetime(df['date']).astype('int64') // 10**9 + df["pair_number"].astype(int)
+        return df
+

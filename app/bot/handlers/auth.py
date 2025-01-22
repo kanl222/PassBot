@@ -2,18 +2,19 @@ import asyncio
 from typing import Dict, Any, Callable
 from functools import wraps
 from aiogram import types, Router
-from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
-from app.db.models.users import User
-from app.services.auth import ServiceAuth
+from app.services.auth import AuthService
+from aiogram.types import ReplyKeyboardRemove
+from app.bot.keyboards import teacher_menu_keyboard
 import logging
 
-from app.db.crud.users import get_user_of_telegram_id
 from app.services.teacher import TeacherDataService
 
 
 auth_router: Router = Router()
+
+
 
 
 class AuthStates(StatesGroup):
@@ -41,41 +42,30 @@ def validate_input(error_message: str) -> Callable:
 async def handle_auth_response(
     message: types.Message, auth_response: Dict[str, Any]
 ) -> None:
-    """Centralized authentication response handling."""
-    response_handlers = {
-        "success": lambda r: f"Добро пожаловать, {r['user']}! Вы успешно авторизованы как {r['role']}.",
-        "exists": lambda r: f"Вы уже зарегистрированы как {r['role']}. Добро пожаловать обратно, {r['user']}!",
-        "no_group": lambda _: "Вы успешно зарегистрированы, но ваша группа еще не назначена. Пожалуйста, свяжитесь с вашим куратором.",
-        "error": lambda _: "Аутентификация не удалась. Проверьте ваш логин и пароль.",
-    }
+    """Handles authentication responses and provides user feedback."""
 
-    message_text = response_handlers.get(
-        auth_response.get("status", "error"),
-        lambda _: "Неизвестный статус аутентификации.",
-    )(auth_response)
+    status = auth_response.get("status")
+    user = auth_response.get("user")
+    role = auth_response.get("role")
+    details = auth_response.get("details") 
 
-    await message.answer(message_text)
-
-
-@auth_router.message(Command(commands=["start"]))
-async def start_auth(message: types.Message, state: FSMContext) -> None:
-    try:
-
-        if user := await get_user_of_telegram_id(telegram_id=message.from_user.id):
-            await message.answer(
-                f"Добро пожаловать обратно, {
-                        user.full_name}! Вы зарегистрированы как {user.role}."
-            )
-            return
-
-        await message.answer("Пожалуйста, введите свой логин:")
-        await state.set_state(AuthStates.awaiting_login)
-
-    except Exception as e:
-        logging.error(f"Error during authentication process: {e}")
-        await message.answer(
-            "Произошла ошибка при проверке вашей учетной записи. Попробуйте позже."
-        )
+    if status == "success":
+        if role:
+            await message.answer(f"Добро пожаловать, {user}! Вы успешно авторизованы как студент.", reply_markup=ReplyKeyboardRemove())
+        else:
+            await message.answer(f"Добро пожаловать, {user}! Вы успешно авторизованы как преподаватель.",reply_markup=teacher_menu_keyboard)
+    elif status == "updated":
+        await message.answer(f"Добро пожаловать, {user}! Ваши данные обновлены. Вы авторизованы как студент.",reply_markup=ReplyKeyboardRemove())
+    elif status == "exists":
+        await message.answer(f"Вы уже зарегистрированы как {role}. Добро пожаловать обратно, {user}!")
+    elif status == "no_group":
+        await message.answer("Вы успешно зарегистрированы, но ваша группа еще не назначена. Пожалуйста, свяжитесь с вашим куратором.")
+    elif status == "error":
+        if details:  
+            error_message = "Аутентификация не удалась."
+            await message.answer(error_message)
+    else:
+        await message.answer("Неизвестный статус аутентификации.")
 
 
 @auth_router.message(AuthStates.awaiting_login)
@@ -108,7 +98,7 @@ async def handle_password(
     }
 
     try:
-        auth_response = await ServiceAuth.authenticated_users(auth_payload)
+        auth_response = await AuthService.authenticate_user(auth_payload)
         await handle_auth_response(message, auth_response)
         if auth_response.get("role", None) == "teacher":
             asyncio.create_task(

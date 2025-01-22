@@ -5,11 +5,16 @@ from pathlib import Path
 from typing import Optional
 
 from dotenv import load_dotenv
+import pytz
 
 TEST_MODE = True
-ID_ADMIN=''
+ID_ADMIN= 1018178535
 ENV_FILE_PATH: Path = Path(os.path.dirname(os.path.abspath(__file__))) / ".." / ".env"
 IS_POSTGRESQL = False
+tz = pytz.timezone('Asia/Yekaterinburg')
+DIR_DATA = 'data'
+ENV_PATH = ".env"
+
 @dataclass
 class DatabaseConfig:
     user: str = ""
@@ -94,7 +99,7 @@ class Settings:
                 f"{self.database.name}"
             )
         
-        db_path: Path = Path("./database.db").resolve()
+        db_path: Path = Path("./DataBase.db").resolve()
         return f"sqlite+aiosqlite:///{db_path}"
 
 

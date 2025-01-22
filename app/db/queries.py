@@ -14,7 +14,7 @@ ModelType = TypeVar("ModelType")
 
 class UniversalQueryService:
     @classmethod
-    @alru_cache(maxsize=1000)
+    @alru_cache(maxsize=128,ttl=30)
     async def get_entities(
         cls, model: Type[ModelType], id: Optional[int] = None, **filters
     )  -> Sequence[ModelType] | None | list:

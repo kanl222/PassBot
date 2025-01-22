@@ -18,7 +18,7 @@ class GroupParser(HTMLParser):
             List of dictionaries with group details.
         """
         try:
-            soup = await cls.get_soup(html_content)
+            soup = cls.get_soup(html_content)
             table: Tag | NavigableString | None = soup.find('table')
             
             if not table:

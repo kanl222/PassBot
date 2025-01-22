@@ -22,13 +22,13 @@ def handle_command_errors(func):
 
 @cli.command(help="Run the bot")
 @handle_command_errors
-def run_bot() -> None:
+def run_bot(is_models:bool = True) -> None:
     """
     Command to run the bot.
     """
     from app.app import initialize_application
     with contextlib.suppress(KeyboardInterrupt):
-        asyncio.run(initialize_application())
+        asyncio.run(initialize_application(is_models))
 
 
 if __name__ == '__main__':

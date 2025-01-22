@@ -1,11 +1,21 @@
 import asyncio
 import logging
 import contextlib
+import os
 
 from .core.logging_app import setup_logging
 from .core import initialization_settings
 
-async def initialize_application() -> bool:
+async def test_procedure():
+    from app.core.settings import TEST_MODE
+    if TEST_MODE:
+        
+        # from app.test import delete_test_student ,delete_test_student
+        # await delete_test_student(student_id=43)
+        # await create_test_student("Мальцев Иван Павлович", group_id=1)
+        pass
+
+async def initialize_application(is_models: bool = True) -> bool:
     """
     Comprehensive async application initialization.
     
@@ -15,7 +25,7 @@ async def initialize_application() -> bool:
         setup_logging()
         initialization_settings()
 
-        from .core.settings import settings
+        from .core.settings import settings, DIR_DATA
         from .db import db_session_manager
 
         db_path = settings.get_database_url()
@@ -25,9 +35,13 @@ async def initialize_application() -> bool:
 
         logging.info(f"Initializing database with path: {db_path}")
         db_session_manager.initialize(db_path)
-
-        await db_session_manager.init_models()
-
+        if is_models:
+            await db_session_manager.init_models()
+        
+        if DIR_DATA: 
+            os.makedirs(os.path.dirname(f'{DIR_DATA}/'), exist_ok=True)    
+        
+        await test_procedure()
         if settings.telegram_bot_token:
             from .bot.run_bot import running_bot
             logging.info("Bot is starting...")
@@ -52,8 +66,11 @@ def main():
     """
     Entry point for application startup with graceful error handling.
     """
-    with contextlib.suppress(KeyboardInterrupt):
-        asyncio.run(initialize_application())
+    with contextlib.suppress(KeyboardInterrupt, SystemExit):  
+        try:
+            asyncio.run(initialize_application())
+        except Exception as e:  
+            logging.critical(f"Unhandled exception: {e}", exc_info=True)
 
 if __name__ == "__main__":
     main()

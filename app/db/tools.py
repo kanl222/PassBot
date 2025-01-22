@@ -37,7 +37,10 @@ async def test_visiting(db_session: AsyncSession, preserve_user_id: int = 1):
         await db_session.execute(delete(Visiting))
         await db_session.execute(
             delete(group_pair_association)
-        )  
+        ) 
+        await db_session.execute(
+            delete(GroupAttendanceLog)
+        )   
         await db_session.execute(delete(Pair))
 
         await db_session.commit()
