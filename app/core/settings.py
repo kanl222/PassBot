@@ -55,7 +55,7 @@ class Settings:
         else:
             logging.warning(f"No .env file found at {env_file_path}")
 
-        settings: Self = cls(
+        settings = cls(
             secret_key=os.getenv("SECRET_KEY", ""),
             algorithm=os.getenv("ALGORITHM", "HS256"),
             telegram_bot_token=os.getenv("BOT_TOKEN", ""),
