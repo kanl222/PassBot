@@ -9,10 +9,7 @@ from .core import initialization_settings
 async def test_procedure():
     from app.core.settings import TEST_MODE
     if TEST_MODE:
-        
-        # from app.test import delete_test_student ,delete_test_student
-        # await delete_test_student(student_id=43)
-        # await create_test_student("Мальцев Иван Павлович", group_id=1)
+
         pass
 
 async def initialize_application(is_models: bool = True) -> bool:
